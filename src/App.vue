@@ -44,7 +44,7 @@ export default {
       const confirmationMessage = 'Your modifications have not been saved and will be lost if you close the Curation Tool. Confirm to discard your changes, or cancel to return to the Curation Tool.';
 
       // if (!isEqual(this.loadedPhyx, this.currentPhyx)) return confirmationMessage;
-      return false;
+      return "";
     });
   },
 };
