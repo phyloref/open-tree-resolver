@@ -6,10 +6,8 @@
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
         <thead>
-          <th>&nbsp;</th>
           <th>Phyloreference</th>
-          <th>Internal specifiers</th>
-          <th>External specifiers</th>
+          <th>Specifiers</th>
         </thead>
         <tbody>
           <tr
@@ -20,18 +18,23 @@
               <center><em>No phyloreferences loaded</em></center>
             </td>
           </tr>
-          <tr v-for="(phyloref, phylorefIndex) of loadedPhylorefs" v-bind:key="phyloref['@id']">
-            <td>&nbsp;</td>
-            <td>
-              <a
-                href="javascript: void(0)"
-              >
-                {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-              </a>
-            </td>
-            <td>{{ (phyloref.internalSpecifiers || []).length }}</td>
-            <td>{{ (phyloref.externalSpecifiers || []).length }}</td>
-          </tr>
+          <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
+            <tr>
+              <td :rowspan="getTaxonomicUnits(phyloref).allTUs.length + 1">
+                <a
+                  href="javascript: void(0)"
+                >
+                  {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+                </a>
+              </td>
+            </tr>
+            <template v-for="internalTU of getTaxonomicUnits(phyloref).internalTUs">
+              <tr><td>{{internalTU}}</td></tr>
+            </template>
+            <template v-for="externalTU of getTaxonomicUnits(phyloref).externalTUs">
+              <tr><td>{{externalTU}}</td></tr>
+            </template>
+          </template>
         </tbody>
       </table>
     </div>
@@ -94,6 +97,22 @@ export default {
     })
   },
   methods: {
+    getTaxonomicUnits(phyloref) {
+      if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
+
+      // Returns a list of TUs for a particular phyloreference.
+      const internalTUs = (phyloref.internalSpecifiers || [])
+          .map(specifier => specifier.referencesTaxonomicUnits || [])
+          .reduce((acc, val) => acc.concat(val), []);
+      const externalTUs = (phyloref.externalSpecifiers || [])
+          .map(specifier => specifier.referencesTaxonomicUnits || [])
+          .reduce((acc, val) => acc.concat(val), []);
+      return {
+        internalTUs,
+        externalTUs,
+        allTUs: internalTUs.concat(externalTUs)
+      };
+    },
     loadJSONLDFromURL(url) {
       // Change the current PHYX to that in the provided URL.
       // Will ask the user to confirm before replacing it.
