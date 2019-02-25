@@ -29,10 +29,10 @@
               </td>
             </tr>
             <template v-for="internalTU of getTaxonomicUnits(phyloref).internalTUs">
-              <tr><td>{{internalTU}}</td></tr>
+              <tr><td>{{getLabelForSpecifier(internalTU)}}</td></tr>
             </template>
             <template v-for="externalTU of getTaxonomicUnits(phyloref).externalTUs">
-              <tr><td>{{externalTU}}</td></tr>
+              <tr><td>{{getLabelForSpecifier(externalTU)}}</td></tr>
             </template>
           </template>
         </tbody>
@@ -97,16 +97,15 @@ export default {
     })
   },
   methods: {
+    getLabelForSpecifier(specifier) {
+      return this.$store.getters.getLabelForSpecifier(specifier) || JSON.stringify(specifier);
+    },
     getTaxonomicUnits(phyloref) {
       if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
 
       // Returns a list of TUs for a particular phyloreference.
-      const internalTUs = (phyloref.internalSpecifiers || [])
-          .map(specifier => specifier.referencesTaxonomicUnits || [])
-          .reduce((acc, val) => acc.concat(val), []);
-      const externalTUs = (phyloref.externalSpecifiers || [])
-          .map(specifier => specifier.referencesTaxonomicUnits || [])
-          .reduce((acc, val) => acc.concat(val), []);
+      const internalTUs = this.$store.getters.getSpecifiersForPhyloref(phyloref, 'internal');
+      const externalTUs = this.$store.getters.getSpecifiersForPhyloref(phyloref, 'external');
       return {
         internalTUs,
         externalTUs,
@@ -125,7 +124,7 @@ export default {
           if (error.status === 200) {
             alert(`Could not load JSON-LD file '${url}': file malformed, see console for details.`);
           } else {
-            alert(`Could not load JSON-LD file '${url}': server error ${error.status} ${error.statusText}`);
+            alert(`Could not load JSON-LD file '${url}': server error ${error.status} ${error.statusText} from ${JSON.stringify(error)}`);
           }
         });
     },
