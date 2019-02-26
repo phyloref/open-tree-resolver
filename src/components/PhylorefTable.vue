@@ -6,8 +6,9 @@
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
         <thead>
-          <th>Phyloreference</th>
-          <th>Specifiers</th>
+          <th>Label</th>
+          <th>Specifier</th>
+          <th>Expression</th>
         </thead>
         <tbody>
           <tr
@@ -20,7 +21,7 @@
           </tr>
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
             <tr>
-              <td :rowspan="getTaxonomicUnits(phyloref).allTUs.length + 1">
+              <td :rowspan="getSpecifiers(phyloref).length + 1">
                 <a
                   href="javascript: void(0)"
                 >
@@ -28,11 +29,11 @@
                 </a>
               </td>
             </tr>
-            <template v-for="internalTU of getTaxonomicUnits(phyloref).internalTUs">
-              <tr><td>{{getLabelForSpecifier(internalTU)}}</td></tr>
-            </template>
-            <template v-for="externalTU of getTaxonomicUnits(phyloref).externalTUs">
-              <tr><td>{{getLabelForSpecifier(externalTU)}}</td></tr>
+            <template v-for="specifier of getSpecifiers(phyloref)">
+              <tr>
+                <td>{{getLabelForSpecifier(specifier)}}</td>
+                <td>{{specifier}}</td>
+              </tr>
             </template>
           </template>
         </tbody>
@@ -98,19 +99,13 @@ export default {
   },
   methods: {
     getLabelForSpecifier(specifier) {
-      return this.$store.getters.getLabelForSpecifier(specifier) || JSON.stringify(specifier);
+      return this.$store.getters.getLabelForSpecifier(specifier);
     },
-    getTaxonomicUnits(phyloref) {
+    getSpecifiers(phyloref) {
       if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
 
       // Returns a list of TUs for a particular phyloreference.
-      const internalTUs = this.$store.getters.getSpecifiersForPhyloref(phyloref, 'internal');
-      const externalTUs = this.$store.getters.getSpecifiersForPhyloref(phyloref, 'external');
-      return {
-        internalTUs,
-        externalTUs,
-        allTUs: internalTUs.concat(externalTUs)
-      };
+      return this.$store.getters.getSpecifiersForPhyloref(phyloref);
     },
     loadJSONLDFromURL(url) {
       // Change the current PHYX to that in the provided URL.
