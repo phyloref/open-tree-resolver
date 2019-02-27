@@ -54,7 +54,7 @@ function getSpecifiersFromClassExpression(classExpr) {
 
   // If classExpr itself has an equivalentClass, then we should process that instead.
   if(has(classExpr, 'equivalentClass')) {
-    return getSpecifiersFromClassExpression(classExpr.equivalentClass);
+    results = results.concat(getSpecifiersFromClassExpression(classExpr.equivalentClass));
   }
 
   // If there are additional classes, then process those too.
@@ -82,16 +82,29 @@ function getLabelForSpecifierExpr(expr) {
     // Form 1. obo:CDAO_0000149 some (excludes_TU some ...) and (includes_TU some ...)
     if (
       has(expr, 'onProperty') && expr.onProperty === 'obo:CDAO_0000149' &&
-      has(expr, 'someValuesFrom') && (
-        has(expr.someValuesFrom, 'intersectionOf') &&
-        getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[0]) !== undefined &&
-        getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[1]) !== undefined
-      )
+      has(expr, 'someValuesFrom') && has(expr.someValuesFrom, 'intersectionOf')
     ) {
-      const comp1 = getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[0]);
-      const comp2 = getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[1]);
+      // There are two possibilities here. We could be looking at the MRCA of two TUs,
+      // or we could be looking at the MRCA of one MRCA and one TU. So figure out which
+      // it is.
+      if(expr.someValuesFrom.intersectionOf.length === 2
+        && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_TU'
+        && has(expr.someValuesFrom.intersectionOf[1], 'onProperty') && expr.someValuesFrom.intersectionOf[1].onProperty === 'phyloref:includes_TU'
+      ) {
+        // Two-TU MRCA!
+        const comp1 = getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[0]);
+        const comp2 = getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[1]);
 
-      return `MRCA(${comp1.substr(25)}, ${comp2.substr(25)})`;
+        return `MRCA(${comp1.substr(25)}, ${comp2.substr(25)})`;
+      } else if(
+        expr.someValuesFrom.intersectionOf.length === 2
+        && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_lineage_to'
+      ) {
+        return undefined;
+      } else {
+        // No idea what this is!
+        return undefined;
+      }
     }
 
     // Form 2. includes_TU some (Name and scientificName some X)
