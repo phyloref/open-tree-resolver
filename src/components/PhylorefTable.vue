@@ -51,6 +51,7 @@
         <input
           id="load-jsonld"
           type="file"
+          multiple="true"
           class="d-none"
           @change="loadJSONLDFromFileInputById('#load-jsonld')"
         >
@@ -148,20 +149,23 @@ export default {
         return;
       }
 
-      if (!$fileInput.prop('files')[0]) {
+      const files = $fileInput.prop('files');
+      if (files.length === 0) {
         alert('Please select a file before attempting to load it.');
         return;
       }
 
-      const [file] = $fileInput.prop('files');
-      const fr = new FileReader();
-      fr.onload = ((e) => {
-        const lines = e.target.result;
-        const jsonld = JSON.parse(lines);
+      for(let x = 0; x < files.length; x++) {
+        const file = files.item(x);
+        const fr = new FileReader();
+        fr.onload = ((e) => {
+          const lines = e.target.result;
+          const jsonld = JSON.parse(lines);
 
-        this.$store.commit('extractPhyloreferencesFromJSONLD', jsonld);
-      });
-      fr.readAsText(file);
+          this.$store.commit('extractPhyloreferencesFromJSONLD', jsonld);
+        });
+        fr.readAsText(file);
+      }
     },
   }
 };
