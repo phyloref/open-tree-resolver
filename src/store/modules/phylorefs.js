@@ -142,21 +142,68 @@ function getLabelForSpecifierExpr(expr) {
     }
 }
 
+const convertTaxonomicUnitToExpr = (type) => (tu) => {
+  const property = `phyloref:${type}_TU`;
+
+  if(!has(tu, 'referencesTaxonomicUnits')) return undefined;
+  // Only use the first taxonomic unit!
+  const tunit = tu.referencesTaxonomicUnits[0];
+  // Scientific name?
+  if (has(tunit, 'scientificNames')) {
+    return {
+      onProperty: property,
+      someValuesFrom: {
+        onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
+        someValuesFrom: {
+          intersectionOf: [
+            {
+              "@id": "obo:NOMEN_0000107"
+            },
+            {
+              onProperty: 'dwc:scientificName',
+              hasValue: tunit.scientificNames[0].scientificName
+            }
+          ]
+        }
+      }
+    };
+  } else {
+    // Don't support anything else!
+    return undefined;
+  }
+};
+
 export default {
   state: {
     loaded: [], // Phyloref objects currently loaded.
   },
   getters: {
-    getLabelForSpecifier: (state, getters) => (expr) => {
+    getLabelForSpecifier: () => (expr) => {
       // Given a specifier expression, return a description of what it's doing.
       return getLabelForSpecifierExpr(expr);
     },
-    getSpecifiersForPhyloref: (state, getters) => (phyloref) => {
+    getSpecifiersForPhyloref: () => (phyloref) => {
       // phyloref: Phyloreference to retrieve specifiers from.
       //
       // All phyloref objects should have internal and external specifier
       // information. But first, let's see if we can extract it directly from
       // the equivalentClass statement.
+
+      if(has(phyloref, 'internalSpecifiers')) {
+        // Old form! Let's just extract the taxonomic units and go with that.
+        const internals = (phyloref['internalSpecifiers'] || [])
+          .map(convertTaxonomicUnitToExpr('includes'))
+          .filter(tu => tu !== undefined);
+        const externals = (phyloref['externalSpecifiers'] || [])
+          .map(convertTaxonomicUnitToExpr('excludes'))
+          .filter(tu => tu !== undefined);
+
+        if(internals.length === 0) return [];
+        if(externals.length === 0) {
+          return internals;
+        }
+        return internals.concat(externals);
+      }
 
       return uniqWith(
         getSpecifiersFromClassExpression(phyloref || []),
