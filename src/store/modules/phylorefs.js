@@ -3,7 +3,6 @@
  * additional phyloreferences.
  */
 
-import Vue from 'vue';
 import { has, isEqual, uniqWith } from 'lodash';
 
 function addPhyloref(state, phyloref) {
