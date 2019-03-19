@@ -8,7 +8,7 @@
         <thead>
           <th>Label</th>
           <th>Specifier</th>
-          <th>Expression</th>
+          <th v-if="flagDisplayExpression">Expression</th>
         </thead>
         <tbody>
           <tr
@@ -32,7 +32,7 @@
             <template v-for="specifier of getSpecifiers(phyloref)">
               <tr>
                 <td>{{getLabelForSpecifier(specifier)}}</td>
-                <td>{{specifier}}</td>
+                <td v-if="flagDisplayExpression">{{specifier}}</td>
               </tr>
             </template>
           </template>
@@ -78,6 +78,11 @@ import { mapState } from 'vuex';
 
 export default {
   name: 'PhylorefTable',
+  data: function () {
+    return {
+      flagDisplayExpression: false,
+    };
+  },
   computed: {
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
