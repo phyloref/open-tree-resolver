@@ -1,7 +1,8 @@
 <template>
+  <div>
   <div class="card border-dark">
     <h5 class="card-header border-dark">
-      Phyloreferences
+      Phyloreferences ({{loadedPhylorefs.length}} phylorefs, {{allSpecifiers.length}} specifiers, {{ottIdsForAllSpecifiers.length}} specifiers with OTT IDs)
     </h5>
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
@@ -81,6 +82,9 @@
       </div>
     </div>
   </div>
+
+  <PhylogenyView :ottIds='ottIdsForAllSpecifiers' />
+</div>
 </template>
 
 <script>
@@ -91,9 +95,13 @@
 
 import { has } from 'lodash';
 import { mapState } from 'vuex';
+import PhylogenyView from './phylogeny/PhylogenyView';
 
 export default {
   name: 'PhylorefTable',
+  components: {
+    PhylogenyView,
+  },
   data: function () {
     return {
       flagDisplayExpression: false,
@@ -115,6 +123,16 @@ export default {
         title: 'Brochu 2003',
       },
     ]},
+    allSpecifiers() {
+      return this.loadedPhylorefs.map(phyloref => this.getSpecifiers(phyloref)).reduce((acc, val) => acc.concat(val), []);
+    },
+    ottIdsForAllSpecifiers() {
+      // Assumes that queryOpenTreeTaxonomyIDs has already been called!
+      const ottIds = this.allSpecifiers.map(specifier => this.getOpenTreeTaxonomyID(specifier))
+        .filter(x => x !== undefined && x !== null);
+
+      return ottIds;
+    },
     ...mapState({
       loadedPhylorefs: state => state.phylorefs.loaded,
       openTreeTaxonomyInfoByName: state => state.otoltaxonomy.openTreeTaxonomyInfoByName
@@ -210,13 +228,14 @@ export default {
 
     queryOpenTreeTaxonomyIDs() {
       // Calculate names from currently loaded specifiers.
-      const specifiers = this.loadedPhylorefs.map(phyloref => this.getSpecifiers(phyloref)).reduce((acc, val) => acc.concat(val), []);
-      const names = specifiers.map(specifier => this.getScinameForSpecifier(specifier));
+      const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
 
       this.$store.dispatch('queryOpenTreeTaxonomyIDs', {
         names,
       });
     }
+
+
   }
 };
 </script>
