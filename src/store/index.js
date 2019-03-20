@@ -4,6 +4,7 @@ import Vuex from 'vuex';
 
 // Load modules
 import phylorefs from './modules/phylorefs';
+import otoltaxonomy from './modules/otoltaxonomy';
 
 Vue.use(Vuex);
 
@@ -13,6 +14,7 @@ export default new Vuex.Store({
   state: {},
   modules: {
     phylorefs,
+    otoltaxonomy,
   },
   strict: debug,
 });

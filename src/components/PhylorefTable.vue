@@ -9,6 +9,8 @@
           <th>Label</th>
           <th>Specifier</th>
           <th v-if="flagDisplayExpression">Expression</th>
+          <th>Scientific name</th>
+          <th>OTT Id</th>
         </thead>
         <tbody>
           <tr
@@ -33,6 +35,14 @@
               <tr>
                 <td>{{getLabelForSpecifier(specifier)}}</td>
                 <td v-if="flagDisplayExpression">{{specifier}}</td>
+                <td>{{getScinameForSpecifier(specifier)}}</td>
+                <td>
+                  <template v-if="getOpenTreeTaxonomyID(specifier)">
+                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/argus/ottol@' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
+
+                    <sup><a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a></sup>
+                  </template>
+                </td>
               </tr>
             </template>
           </template>
@@ -64,6 +74,11 @@
           </a>
         </div>
       </div>
+      <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
+        <button class="btn btn-primary" type="button" id="queryOpenTreeTaxonomyIDs" @click="queryOpenTreeTaxonomyIDs()">
+          Query Open Tree of Life Taxonomy
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -74,6 +89,7 @@
  * and the ability to add new phyloreferences.
  */
 
+import { has } from 'lodash';
 import { mapState } from 'vuex';
 
 export default {
@@ -100,12 +116,31 @@ export default {
       },
     ]},
     ...mapState({
-      loadedPhylorefs: state => state.phylorefs.loaded
+      loadedPhylorefs: state => state.phylorefs.loaded,
+      openTreeTaxonomyInfoByName: state => state.otoltaxonomy.openTreeTaxonomyInfoByName
     })
   },
   methods: {
     getLabelForSpecifier(specifier) {
       return this.$store.getters.getLabelForSpecifier(specifier);
+    },
+    getScinameForSpecifier(specifier) {
+      const label = this.getLabelForSpecifier(specifier);
+
+      // TODO Fix hack.
+      const match = /^(?:includes|excludes) scientific name (\w+) (?:\(originally \w+\)\s+)?([\w\-]+)\W/.exec(label);
+      if(match) {
+        return `${match[1]} ${match[2]}`
+      }
+
+      return undefined;
+    },
+    getOpenTreeTaxonomyID(specifier) {
+      const matches = this.openTreeTaxonomyInfoByName[this.getScinameForSpecifier(specifier)];
+
+      if(matches && matches.length > 0) {
+        return matches[0]['taxon']['ott_id'];
+      }
     },
     getSpecifiers(phyloref) {
       if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
@@ -172,6 +207,16 @@ export default {
         fr.readAsText(file);
       }
     },
+
+    queryOpenTreeTaxonomyIDs() {
+      // Calculate names from currently loaded specifiers.
+      const specifiers = this.loadedPhylorefs.map(phyloref => this.getSpecifiers(phyloref)).reduce((acc, val) => acc.concat(val), []);
+      const names = specifiers.map(specifier => this.getScinameForSpecifier(specifier));
+
+      this.$store.dispatch('queryOpenTreeTaxonomyIDs', {
+        names,
+      });
+    }
   }
 };
 </script>
