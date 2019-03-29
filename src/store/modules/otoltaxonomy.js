@@ -19,6 +19,12 @@ export default {
 
         // console.log("Setting", name, "to", info['matches']);
 
+        // Do we have any flags? If so, ignore this.
+        if((info.matches[0].taxon.flags || []).length > 0) {
+          console.log("Ignoring", name, "because of flags:", info.matches[0].taxon.flags);
+          return;
+        }
+
         // TODO do something cleverer when choosing between multiple matches
         Vue.set(state.openTreeTaxonomyInfoByName, name, info['matches'] || []);
       }
