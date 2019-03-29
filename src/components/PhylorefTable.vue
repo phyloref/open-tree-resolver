@@ -146,7 +146,7 @@ export default {
       const label = this.getLabelForSpecifier(specifier);
 
       // TODO Fix hack.
-      const match = /^(?:includes|excludes) scientific name (\w+) (?:\(originally \w+\)\s+)?([\w\-]+)\W/.exec(label);
+      const match = /^(?:includes|excludes) scientific name (\w+) (?:\(originally \w+\)\s+)?([\w\-]+)\b/.exec(label);
       if(match) {
         return `${match[1]} ${match[2]}`
       }
