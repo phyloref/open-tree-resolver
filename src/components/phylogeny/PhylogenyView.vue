@@ -118,36 +118,42 @@
               </td>
             </tr>
             <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
-              <tr>
-                <td :rowspan="reasoningResults[phyloref['@id']].length">
-                  <a
-                    href="javascript: void(0)"
-                  >
-                    {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-                  </a>
-                </td>
                 <template v-if="reasoningResults[phyloref['@id']]">
-                    <template v-for="(nodeId, nodeIdIndex) of reasoningResults[phyloref['@id']]">
-                      <td>
-                        {{ nodeId }}
-                      </td>
-                      <td>
-                        {{ (currentNodes[nodeId].labels || []).join(', ') }}
-                      </td>
-                      <td>
-                        <template v-if="getOTTNodeId(currentNodes[nodeId])">
-                            <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/argus/@' + getOTTNodeId(currentNodes[nodeId])[1]">{{getOTTNodeId(currentNodes[nodeId])[1]}}</a>
-                        </template>
-                        <template v-else>
-                            Could not extract OTT node id from {{currentNodes[nodeId]}}.
-                        </template>
-                      </td>
-                    </template>
+                  <template v-for="(nodeId, nodeIdIndex) of reasoningResults[phyloref['@id']]">
+                  <tr>
+                    <td>
+                      <a href="javascript: void(0)">
+                        {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+                      </a>
+                    </td>
+                    <td>
+                      {{ nodeId }}
+                    </td>
+                    <td>
+                      {{ (currentNodes[nodeId].labels || []).join(', ') }}
+                    </td>
+                    <td>
+                      <template v-if="getOTTNodeId(currentNodes[nodeId])">
+                        <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/argus/@' + getOTTNodeId(currentNodes[nodeId])[1]">{{getOTTNodeId(currentNodes[nodeId])[1]}}</a>
+                      </template>
+                      <template v-else>
+                        Could not extract OTT node id from {{currentNodes[nodeId]}}.
+                      </template>
+                    </td>
+                  </tr>
+                  </template>
                 </template>
                 <template v-else>
+                  <tr>
+                    <td>
+                      <a href="javascript: void(0)">
+                        {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+                      </a>
+                    </td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
                     <td>&nbsp;</td>
+                  </tr>
                 </template>
               </tr>
             </template>
