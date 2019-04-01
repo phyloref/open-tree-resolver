@@ -376,7 +376,7 @@ export default {
         if(labels.length == 0) return undefined;
         const label = labels[0]; // Ignore other labels.
 
-        const match = /^(.*)_(.*?ott.*)$/.exec(label);
+        const match = /^(.*)[_\s](.*?ott.*)$/.exec(label);
         if(match == null) {
             const matchMRCA = /^mrca.*$/.exec(label);
             if(matchMRCA == null) return undefined;
