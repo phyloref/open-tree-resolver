@@ -13,21 +13,23 @@ export default {
   getters: {
   },
   mutations: {
-    setOpenTreeTaxonomyInfoByName: (state, info) => {
-      if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
-        const name = info.name.trim();
+    setOpenTreeTaxonomyInfoByNames: (state, results) => {
+      results.forEach(info => {
+          if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+            const name = info.name.trim();
 
-        // console.log("Setting", name, "to", info['matches']);
+            // console.log("Setting", name, "to", info['matches']);
 
-        // Do we have any flags? If so, ignore this.
-        if((info.matches[0].taxon.flags || []).length > 0) {
-          console.log("Ignoring", name, "because of flags:", info.matches[0].taxon.flags);
-          return;
-        }
+            // Do we have any flags? If so, ignore this.
+            if((info.matches[0].taxon.flags || []).length > 0) {
+              console.log("Ignoring", name, "because of flags:", info.matches[0].taxon.flags);
+              return;
+            }
 
-        // TODO do something cleverer when choosing between multiple matches
-        Vue.set(state.openTreeTaxonomyInfoByName, name, info['matches'] || []);
-      }
+            // TODO do something cleverer when choosing between multiple matches
+            Vue.set(state.openTreeTaxonomyInfoByName, name, info['matches'] || []);
+          }
+      });
     },
   },
   actions: {
@@ -41,12 +43,15 @@ export default {
 
       // Deduplicate names to be queried.
       const names = uniq(options.names)
-        .filter(name => name !== undefined && name !== null); // Eliminate any undefineds or nulls.
+        .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
+        .sort();
 
       // Step 1. Delete existing entries for the provided names.
-      names.forEach(name => context.commit('setOpenTreeTaxonomyInfoByName', {
-        name,
-        matches: [],
+      context.commit('setOpenTreeTaxonomyInfoByNames', names.map(name => {
+        return {
+          name,
+          matches: [],
+        };
       }));
 
       // OToL TNRS match_names has a limit of 1,000 names.
@@ -63,7 +68,7 @@ export default {
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
           success: (data) => {
-            data.results.forEach(result => context.commit('setOpenTreeTaxonomyInfoByName', result));
+            context.commit('setOpenTreeTaxonomyInfoByNames', data.results);
           },
         })
           .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
