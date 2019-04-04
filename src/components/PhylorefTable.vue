@@ -8,6 +8,7 @@
       <table class="table table-hover table-flush">
         <thead>
           <th>Label</th>
+          <th>OToL resolved node</th>
           <th>Specifier</th>
           <th v-if="flagDisplayExpression">Expression</th>
           <th>Scientific name</th>
@@ -18,7 +19,7 @@
             v-if="loadedPhylorefs.length === 0"
             class="bg-white"
           >
-            <td colspan="4">
+            <td colspan="5">
               <center><em>No phyloreferences loaded</em></center>
             </td>
           </tr>
@@ -26,6 +27,12 @@
             <tr>
               <td :rowspan="getSpecifiers(phyloref).length + 1">
                 {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+              </td>
+              <td :rowspan="getSpecifiers(phyloref).length + 1">
+                &nbsp;
+                <template v-for="(nodeId, nodeIdIndex) of reasoningResults[phyloref['@id']]">
+                  <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@' + getOTTNodeId(currentNodes[nodeId])[1]">{{getOTTNodeId(currentNodes[nodeId])[1]}}</a><br />
+                </template>
               </td>
             </tr>
             <template v-for="specifier of getSpecifiers(phyloref)">
@@ -77,7 +84,7 @@
         </button>
       </div>
       <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
-        <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []">
+        <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []; reasoningResults = {}">
           Clear phylorefs
         </button>
       </div>
