@@ -63,6 +63,11 @@
           </a>
         </div>
       </div>
+      <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
+        <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []">
+          Clear phylorefs
+        </button>
+      </div>
     </div>
   </div>
 </template>
