@@ -126,10 +126,6 @@ export default {
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       {
-        url: 'examples/fisher_et_al_2007.jsonld',
-        title: 'Fisher et al, 2007',
-      },
-      {
         url: 'examples/brochu_2003.jsonld',
         title: 'Brochu 2003',
       },
