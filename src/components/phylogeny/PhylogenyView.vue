@@ -98,67 +98,79 @@
 
     <div class="card border-dark mt-2">
       <h5 class="card-header border-dark">
-        Reasoning results (temporary)
+        Reasoning results
       </h5>
       <div class="card-body p-0">
-        <table class="table table-hover table-flush">
-          <thead>
+        <table id="resolved-nodes-table" class="table table-hover table-flush">
+          <tr><!-- Should really be in thead, but that confuses table2csv -->
             <th>Label</th>
             <th>Phylogeny nodes</th>
             <th>Node labels</th>
             <th>OToL node</th>
-          </thead>
-          <tbody>
-            <tr
-              v-if="loadedPhylorefs.length === 0"
-              class="bg-white"
-            >
-              <td colspan="4">
-                <center><em>No phyloreferences loaded</em></center>
-              </td>
-            </tr>
-            <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
-                <template v-if="reasoningResults[phyloref['@id']]">
-                  <template v-for="(nodeId, nodeIdIndex) of reasoningResults[phyloref['@id']]">
-                  <tr>
-                    <td>
-                      <a href="javascript: void(0)">
-                        {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-                      </a>
-                    </td>
-                    <td>
-                      {{ nodeId }}
-                    </td>
-                    <td>
-                      {{ (currentNodes[nodeId].labels || []).join(', ') }}
-                    </td>
-                    <td>
-                      <template v-if="getOTTNodeId(currentNodes[nodeId])">
-                        <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/argus/@' + getOTTNodeId(currentNodes[nodeId])[1]">{{getOTTNodeId(currentNodes[nodeId])[1]}}</a>
-                      </template>
-                      <template v-else>
-                        Could not extract OTT node id from {{currentNodes[nodeId]}}.
-                      </template>
-                    </td>
-                  </tr>
-                  </template>
-                </template>
-                <template v-else>
-                  <tr>
-                    <td>
-                      <a href="javascript: void(0)">
-                        {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-                      </a>
-                    </td>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
-                    <td>&nbsp;</td>
-                  </tr>
-                </template>
+          </tr>
+          <tr
+            v-if="phylorefs.length === 0"
+            class="bg-white"
+          >
+            <td colspan="4">
+              <center><em>No phyloreferences loaded</em></center>
+            </td>
+          </tr>
+          <template v-for="(phyloref, phylorefIndex) of phylorefs">
+            <template v-if="reasoningResults[phyloref['@id']]">
+              <template v-if="reasoningResults[phyloref['@id']].length == 0">
+                <tr>
+                  <td>{{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                  <td>&nbsp;</td>
+                </tr>
+              </template>
+              <template v-for="(nodeId, nodeIdIndex) of reasoningResults[phyloref['@id']]">
+                <tr>
+                  <td>
+                    {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+                  </td>
+                  <td>
+                    {{ nodeId }}
+                  </td>
+                  <td>
+                    {{ (currentNodes[nodeId].labels || []).join(', ') }}
+                  </td>
+                  <td>
+                    <template v-if="getOTTNodeId(currentNodes[nodeId])">
+                      <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@' + getOTTNodeId(currentNodes[nodeId])[1]">{{getOTTNodeId(currentNodes[nodeId])[1]}}</a>
+                    </template>
+                    <template v-else>
+                      Could not extract OTT node id from {{currentNodes[nodeId]}}.
+                    </template>
+                  </td>
+                </tr>
+              </template>
+            </template>
+            <template v-else>
+              <tr>
+                <td>
+                  {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+                </td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
+                <td>&nbsp;</td>
               </tr>
             </template>
-          </tbody>
+          </template>
         </table>
+      </div>
+      <div class="card-footer">
+        <div class="btn-group" role="group" area-label="Export options">
+          <button
+            class="btn btn-secondary"
+            href="javascript: void(0)"
+            @click="exportTableAsCSV('#resolved-nodes-table', 'resolved-nodes.csv')"
+          >
+            Download resolved nodes as CSV
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -188,6 +200,10 @@ export default {
     ottIds: {
       type: Array,
       default: [],
+    },
+    phylorefs: {
+      type: Array,
+      default: [],
     }
   },
   data: function () { return {
@@ -200,7 +216,7 @@ export default {
   }},
   computed: {
     asOntology() {
-      const phylorefsWithEquivalentClass = this.loadedPhylorefs.filter(
+      const phylorefsWithEquivalentClass = this.phylorefs.filter(
         phyloref => has(phyloref, 'equivalentClass')
       );
       // Add the phylogeny.
@@ -539,6 +555,9 @@ export default {
       })
         .fail(x => console.log("Error accessing Open Tree MRCA", x));
     },
+    exportTableAsCSV(tableId, filename) {
+      $(tableId).first().table2csv('download', { filename });
+    }
   }
 };
 </script>
