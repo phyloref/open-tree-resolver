@@ -21,6 +21,9 @@ import store from './store';
 // Set up JQuery as a global.
 window.$ = require('jquery');
 
+// Set up table2csv as a JQuery plugin.
+import 'table2csv/dist/table2csv.min.js';
+
 // Add additional features to Vue.
 Vue.use(BootstrapVue);
 Vue.use(VueResize);
