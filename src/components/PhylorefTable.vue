@@ -125,10 +125,6 @@ export default {
         title: 'Fisher et al, 2007',
       },
       {
-        url: 'examples/hillis_and_wilcox_2005.jsonld',
-        title: 'Hillis and Wilcox, 2005',
-      },
-      {
         url: 'examples/brochu_2003.jsonld',
         title: 'Brochu 2003',
       },
