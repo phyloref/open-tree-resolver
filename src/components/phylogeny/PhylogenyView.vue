@@ -103,7 +103,8 @@
         Reasoning results
       </h5>
       <div class="card-body p-0">
-        <table id="resolved-nodes-table" class="table table-hover table-flush">
+        <table id="resolved-nodes-table" class="table table-flush table-striped">
+          <tbody>
           <tr><!-- Should really be in thead, but that confuses table2csv -->
             <th>Label</th>
             <th>Phylogeny node</th>
@@ -161,6 +162,7 @@
               </tr>
             </template>
           </template>
+          </tbody>
         </table>
       </div>
       <div class="card-footer">
