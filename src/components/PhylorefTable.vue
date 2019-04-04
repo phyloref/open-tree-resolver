@@ -2,7 +2,7 @@
   <div>
   <div class="card border-dark">
     <h5 class="card-header border-dark">
-      Phyloreferences ({{loadedPhylorefs.length}} phylorefs, {{allSpecifiers.length}} specifiers, {{ottIdsForAllSpecifiers.length}} specifiers with OTT IDs)
+      Phyloreferences ({{loadedPhylorefs.length}} phylorefs, {{phylorefsWithMoreThanOneSpecifier.length}} phylorefs with more than one specifier, {{phylorefsWithEveryOTTIds.length}} phylorefs with every OTT id, {{allSpecifiers.length}} specifiers, {{ottIdsForAllSpecifiers.length}} specifiers with OTT IDs)
     </h5>
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
@@ -35,7 +35,7 @@
                 <td>{{getScinameForSpecifier(specifier)}}</td>
                 <td>
                   <template v-if="getOpenTreeTaxonomyID(specifier)">
-                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/argus/ottol@' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
+                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
 
                     <sup><a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a></sup>
                   </template>
@@ -79,7 +79,7 @@
     </div>
   </div>
 
-  <PhylogenyView :ottIds='ottIdsForAllSpecifiers' />
+  <PhylogenyView :phylorefs='loadedPhylorefs' :ottIds='ottIdsForAllSpecifiers' />
 </div>
 </template>
 
@@ -89,7 +89,8 @@
  * and the ability to add new phyloreferences.
  */
 
-import { has } from 'lodash';
+import { has, isEqual, uniq, chunk } from 'lodash';
+import Vue from 'vue';
 import { mapState } from 'vuex';
 import PhylogenyView from './phylogeny/PhylogenyView';
 
@@ -101,9 +102,22 @@ export default {
   data: function () {
     return {
       flagDisplayExpression: false,
+      loadedPhylorefs: [],
+      openTreeTaxonomyInfoByName: {},
     };
   },
   computed: {
+    phylorefsWithMoreThanOneSpecifier() {
+      return this.loadedPhylorefs.filter(phyloref => (this.getSpecifiersForPhyloref(phyloref) || []).length > 1);
+    },
+    phylorefsWithEveryOTTIds() {
+      return this.loadedPhylorefs.filter(phyloref => {
+        const specifiers = this.getSpecifiersForPhyloref(phyloref);
+        if(specifiers.length > 0 &&
+          specifiers.length === specifiers.filter(specifier => this.getOpenTreeTaxonomyID(specifier) !== undefined).length
+        ) return true;
+      });
+    },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       {
@@ -129,15 +143,8 @@ export default {
 
       return ottIds;
     },
-    ...mapState({
-      loadedPhylorefs: state => state.phylorefs.loaded,
-      openTreeTaxonomyInfoByName: state => state.otoltaxonomy.openTreeTaxonomyInfoByName
-    })
   },
   methods: {
-    getLabelForSpecifier(specifier) {
-      return this.$store.getters.getLabelForSpecifier(specifier);
-    },
     getScinameForSpecifier(specifier) {
       const label = this.getLabelForSpecifier(specifier);
 
@@ -160,15 +167,16 @@ export default {
       if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
 
       // Returns a list of TUs for a particular phyloreference.
-      return this.$store.getters.getSpecifiersForPhyloref(phyloref);
+      return this.getSpecifiersForPhyloref(phyloref);
     },
+
     loadJSONLDFromURL(url) {
       // Change the current PHYX to that in the provided URL.
       // Will ask the user to confirm before replacing it.
 
       $.getJSON(url)
         .done((data) => {
-          this.$store.commit('extractPhyloreferencesFromJSONLD', data);
+          this.extractPhyloreferencesFromJSONLD(data);
         })
         .fail((error) => {
           if (error.status === 200) {
@@ -216,7 +224,7 @@ export default {
           const lines = e.target.result;
           const jsonld = JSON.parse(lines);
 
-          this.$store.commit('extractPhyloreferencesFromJSONLD', jsonld);
+          this.extractPhyloreferencesFromJSONLD(jsonld);
         });
         fr.readAsText(file);
       }
@@ -226,12 +234,277 @@ export default {
       // Calculate names from currently loaded specifiers.
       const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
 
-      this.$store.dispatch('queryOpenTreeTaxonomyIDs', {
-        names,
+      this.queryOpenTreeTaxonomyIDsForNames({names});
+    },
+
+    setOpenTreeTaxonomyInfoByNames(results) {
+      results.forEach(info => {
+        if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+          const name = info.name.trim();
+
+          // console.log("Setting", name, "to", info['matches']);
+
+          // Do we have any flags? If so, ignore this.
+          const flags = info.matches[0].taxon.flags || [];
+
+          // We don't know which flags lead to taxa being suppressed from the
+          // synthetic tree (see
+          // https://github.com/OpenTreeOfLife/reference-taxonomy/blob/master/doc/taxon-flags.md#flags-leading-to-taxa-being-suppressed-from-the-synthetic-tree
+          // ), but we do know some flags that *don't* lead to taxa being suppressed
+          // from the synthetic tree, so let's remove those from the flags.
+          const flagsIndicatingSuppression = flags
+            .filter(fl => fl !== 'SIBLING_HIGHER')
+
+          if(flagsIndicatingSuppression.length > 0) {
+            console.log("Ignoring", name, "because of flags:", flagsIndicatingSuppression);
+            return;
+          }
+
+          // TODO do something cleverer when choosing between multiple matches
+          Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
+        }
       });
+    },
+
+    queryOpenTreeTaxonomyIDsForNames(options) {
+      // Creates queries to the Open Tree Taxonomy for the provided names.
+      // This will return asynchonously; you need to call getOpenTreeTaxonomyID(name)
+      // to retrieve the results.
+      // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name:
+      //  - do_approximate_matching
+
+      // Deduplicate names to be queried.
+      const names = uniq(options.names)
+        .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
+        .sort();
+
+      // Step 1. Delete existing entries for the provided names.
+      this.setOpenTreeTaxonomyInfoByNames(names.map(name => {
+        return {
+          name,
+          matches: [],
+        };
+      }));
+
+      // OToL TNRS match_names has a limit of 1,000 names.
+      chunk(names, 999).forEach(chunk => {
+        options.names = chunk;
+        const data = JSON.stringify(options);
+
+        // Step 2. Spawn queries to OTT asking for the names.
+        jQuery.ajax({
+          type: 'POST',
+          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          data,
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: (data) => {
+            this.setOpenTreeTaxonomyInfoByNames(data.results);
+          },
+        })
+          .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
+      });
+    },
+
+    addPhyloref(phyloref) {
+      // Check to make sure this phyloref hasn't already been added.
+      if(this.loadedPhylorefs.find(phy => isEqual(phy, phyloref)) !== undefined) return;
+
+      // No previous match? Then add it in!
+      this.loadedPhylorefs.push(phyloref);
+    },
+
+    extractPhyloreferencesFromJSONLD(jsonld) {
+      // Extract phyloreferences from the provided JSONLD file and add them to
+      // state.loaded. We use isEqual to prevent adding the same phyloreference
+      // more than once, but we will add different phyloreferences with the
+      // same '@id'.
+
+      // JSON-LD files sometimes contain an array of elements. In this case,
+      // we should try adding every one.
+      if(Array.isArray(jsonld)) {
+        jsonld.forEach(element => this.extractPhyloreferencesFromJSONLD(element));
+      }
+
+      // If this was generated by the Authoring Tool, then we can find phyloreferences
+      // just by looking for jsonld.phylorefs.
+      if(has(jsonld, 'phylorefs') && Array.isArray(jsonld.phylorefs)) {
+        jsonld.phylorefs.forEach(phy => this.addPhyloref(phy));
+      }
+
+      // If it was created by phyx2ontology, the phyloreferences can be recognized
+      // has having a subClassOf 'phyloref:Phyloreference'. Let's look for that.
+      if(has(jsonld, 'subClassOf')) {
+        if(Array.isArray(jsonld.subClassOf) && jsonld.subClassOf.includes('phyloref:Phyloreference'))
+          this.addPhyloref(jsonld);
+        if(jsonld.subClassOf === 'phyloref:Phyloreference')
+          this.addPhyloref(jsonld);
+      }
+    },
+
+    getSpecifiersFromClassExpression(classExpr) {
+      let results = [];
+
+      // If classExpr is an array, then process each entry separately.
+      if(Array.isArray(classExpr)) {
+        return classExpr
+          .map(expr => getSpecifiersFromClassExpression(expr))
+          .reduce((acc, val) => acc.concat(val), []);
+      }
+
+      // If classExpr itself has an equivalentClass, then we should process that instead.
+      if(has(classExpr, 'equivalentClass')) {
+        results = results.concat(getSpecifiersFromClassExpression(classExpr.equivalentClass));
+      }
+
+      // If there are additional classes, then process those too.
+      if(has(classExpr, 'hasAdditionalClass')) {
+        results = results.concat(getSpecifiersFromClassExpression(classExpr.hasAdditionalClass));
+      }
+
+      if(getLabelForSpecifier(classExpr) !== undefined) {
+        results.push(classExpr);
+      } else {
+        if(has(classExpr, 'someValuesFrom')) {
+          results = results.concat(getSpecifiersFromClassExpression(classExpr.someValuesFrom));
+        }
+
+        if(has(classExpr, 'intersectionOf')) {
+          results = results.concat(getSpecifiersFromClassExpression(classExpr.intersectionOf));
+        }
+      }
+
+      return results;
+    },
+
+    getLabelForSpecifier(expr) {
+      // Recognize the three standard expression forms.
+      // Form 1. obo:CDAO_0000149 some (excludes_TU some ...) and (includes_TU some ...)
+      if (
+        has(expr, 'onProperty') && expr.onProperty === 'obo:CDAO_0000149' &&
+        has(expr, 'someValuesFrom') && has(expr.someValuesFrom, 'intersectionOf')
+      ) {
+        // There are two possibilities here. We could be looking at the MRCA of two TUs,
+        // or we could be looking at the MRCA of one MRCA and one TU. So figure out which
+        // it is.
+        if(expr.someValuesFrom.intersectionOf.length === 2
+          && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_TU'
+          && has(expr.someValuesFrom.intersectionOf[1], 'onProperty') && expr.someValuesFrom.intersectionOf[1].onProperty === 'phyloref:includes_TU'
+        ) {
+          // Two-TU MRCA!
+          const comp1 = this.getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[0]);
+          const comp2 = this.getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[1]);
+
+          return `MRCA(${comp1.substr(25)}, ${comp2.substr(25)})`;
+        } else if(
+          expr.someValuesFrom.intersectionOf.length === 2
+          && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_lineage_to'
+        ) {
+          return undefined;
+        } else {
+          // No idea what this is!
+          return undefined;
+        }
+      }
+
+      // Form 2. includes_TU some (Name and scientificName some X)
+      else if (
+          (has(expr, 'onProperty') && expr.onProperty === 'phyloref:includes_TU') &&
+          (has(expr, 'someValuesFrom') && (
+            (has(expr.someValuesFrom, 'onProperty') && expr.someValuesFrom.onProperty === 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName') &&
+            (has(expr.someValuesFrom, 'someValuesFrom') &&
+              (has(expr.someValuesFrom.someValuesFrom, 'intersectionOf')) &&
+              (has(expr.someValuesFrom.someValuesFrom.intersectionOf[1], 'onProperty') &&
+                expr.someValuesFrom.someValuesFrom.intersectionOf[1].onProperty === 'dwc:scientificName')
+            )
+          )
+        )
+      ) {
+          return `includes scientific name ${expr.someValuesFrom.someValuesFrom.intersectionOf[1].hasValue}`;
+          // return JSON.stringify(expr);
+      }
+      // Form 3. excludes_TU some (Name and scientificName some X)
+      else if (
+          (has(expr, 'onProperty') && expr.onProperty === 'phyloref:excludes_TU') &&
+          (has(expr, 'someValuesFrom') && (
+              (has(expr.someValuesFrom, 'onProperty') && expr.someValuesFrom.onProperty === 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName') &&
+              (has(expr.someValuesFrom, 'someValuesFrom') &&
+                (has(expr.someValuesFrom.someValuesFrom, 'intersectionOf')) &&
+                (has(expr.someValuesFrom.someValuesFrom.intersectionOf[1], 'onProperty') &&
+                  expr.someValuesFrom.someValuesFrom.intersectionOf[1].onProperty === 'dwc:scientificName')
+              )
+          ))
+      ) {
+          return `excludes scientific name ${expr.someValuesFrom.someValuesFrom.intersectionOf[1].hasValue}`;
+          // return JSON.stringify(expr);
+      } else {
+          // Could not match!
+          return undefined;
+      }
+    },
+
+    convertTaxonomicUnitToExpr(type) {
+      return (tu) => {
+        const property = `phyloref:${type}_TU`;
+
+        if(!has(tu, 'referencesTaxonomicUnits')) return undefined;
+        // Only use the first taxonomic unit!
+        const tunit = tu.referencesTaxonomicUnits[0];
+        // Scientific name?
+        if (has(tunit, 'scientificNames')) {
+          return {
+            onProperty: property,
+            someValuesFrom: {
+              onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
+              someValuesFrom: {
+                intersectionOf: [
+                  {
+                    "@id": "obo:NOMEN_0000107"
+                  },
+                  {
+                    onProperty: 'dwc:scientificName',
+                    hasValue: tunit.scientificNames[0].scientificName
+                  }
+                ]
+              }
+            }
+          };
+        } else {
+          // We don't support anything else!
+          return undefined;
+        }
+      }
+    },
+
+    getSpecifiersForPhyloref(phyloref) {
+      // phyloref: Phyloreference to retrieve specifiers from.
+      //
+      // All phyloref objects should have internal and external specifier
+      // information. But first, let's see if we can extract it directly from
+      // the equivalentClass statement.
+
+      if(has(phyloref, 'internalSpecifiers')) {
+        // Old form! Let's just extract the taxonomic units and go with that.
+        const internals = (phyloref['internalSpecifiers'] || [])
+          .map(this.convertTaxonomicUnitToExpr('includes'))
+          .filter(tu => tu !== undefined);
+        const externals = (phyloref['externalSpecifiers'] || [])
+          .map(this.convertTaxonomicUnitToExpr('excludes'))
+          .filter(tu => tu !== undefined);
+
+        if(internals.length === 0) return [];
+        if(externals.length === 0) {
+          return internals;
+        }
+        return internals.concat(externals);
+      }
+
+      return uniqWith(
+        this.getSpecifiersFromClassExpression(phyloref || []),
+        isEqual
+      );
     }
-
-
   }
 };
 </script>
