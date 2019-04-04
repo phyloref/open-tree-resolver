@@ -28,7 +28,7 @@
       <div class="card-footer">
         <div class="btn-group" role="group" area-label="Redraw the phylogeny from different sources">
           <button
-            class="btn btn-secondary"
+            class="btn btn-primary"
             href="javascript: void(0)"
             @click="downloadInducedSubtreeFromOpenTreeOfLife(ottIds)"
           >
@@ -80,13 +80,15 @@
         Reasoning over input ontologies
       </h5>
       <div class="card-body p-0">
+        <!--
         <textarea readonly rows="5" class="form-control" :value="asOntology"></textarea>
         <textarea readonly rows="5" class="form-control" :value="JSON.stringify(reasoningResults, null, 4)"></textarea>
+        -->
       </div>
       <div class="card-footer">
         <div class="btn-group" role="group" area-label="Reason over the phylogeny">
           <button
-            class="btn btn-secondary"
+            class="btn btn-primary"
             href="javascript: void(0)"
             @click="reasonOverPhylogeny()"
           >
@@ -104,7 +106,7 @@
         <table id="resolved-nodes-table" class="table table-hover table-flush">
           <tr><!-- Should really be in thead, but that confuses table2csv -->
             <th>Label</th>
-            <th>Phylogeny nodes</th>
+            <th>Phylogeny node</th>
             <th>Node labels</th>
             <th>OToL node</th>
           </tr>
