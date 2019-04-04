@@ -25,11 +25,7 @@
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
             <tr>
               <td :rowspan="getSpecifiers(phyloref).length + 1">
-                <a
-                  href="javascript: void(0)"
-                >
-                  {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-                </a>
+                {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
               </td>
             </tr>
             <template v-for="specifier of getSpecifiers(phyloref)">
