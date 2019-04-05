@@ -604,19 +604,6 @@ export default {
           // Do we have any flags? If so, ignore this.
           const flags = info.matches[0].taxon.flags || [];
 
-          // We don't know which flags lead to taxa being suppressed from the
-          // synthetic tree (see
-          // https://github.com/OpenTreeOfLife/reference-taxonomy/blob/master/doc/taxon-flags.md#flags-leading-to-taxa-being-suppressed-from-the-synthetic-tree
-          // ), but we do know some flags that *don't* lead to taxa being suppressed
-          // from the synthetic tree, so let's remove those from the flags.
-          const flagsIndicatingSuppression = flags
-            .filter(fl => fl !== 'SIBLING_HIGHER')
-
-          if(flagsIndicatingSuppression.length > 0) {
-            console.log("Ignoring", name, "because of flags:", flagsIndicatingSuppression);
-            return;
-          }
-
           // TODO do something cleverer when choosing between multiple matches
           Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
         }
@@ -986,7 +973,7 @@ export default {
       // Induced subtree approach
       jQuery.ajax({
         type: 'POST',
-        url: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+        url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
         data: JSON.stringify({
           ott_ids: ottIds,
         }),
@@ -996,7 +983,31 @@ export default {
           this.newick = data.newick;
         },
       })
-        .fail(x => console.log("Error accessing Open Tree induced_subtree", x));
+        .fail(x => {
+          if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
+            const unknownOttIds = x.responseJSON.unknown;
+            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIds);
+
+            const knownOttIds = ottIds.filter(id => !has(unknownOttIds, "ott" + id));
+            console.log("Query has been reduced to the following nodes: ", knownOttIds);
+
+            // Redo query without unknown OTT Ids.
+            jQuery.ajax({
+              type: 'POST',
+              url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+              data: JSON.stringify({
+                ott_ids: knownOttIds,
+              }),
+              contentType: 'application/json; charset=utf-8',
+              dataType: 'json',
+              success: (data) => {
+                this.newick = data.newick;
+              },
+            }).fail(x => console.log("Error accessing Open Tree induced_subtree", x));
+          } else {
+            console.log("Error accessing Open Tree induced_subtree", x);
+          }
+        });
     },
     downloadMRCAFromOpenTreeOfLife(ottIds) {
       if(ottIds.length === 0) return;
