@@ -205,6 +205,11 @@ export default {
       loadedPhylorefs: [],
       openTreeTaxonomyInfoByName: {},
       newick: '()',
+      PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
+      ONTOLOGY_BASEURI: "http://example.org/#",
+      reasoningInProgress: false,
+      reasoningResults: {},
+      currentNodes: {}
     };
   },
   computed: {

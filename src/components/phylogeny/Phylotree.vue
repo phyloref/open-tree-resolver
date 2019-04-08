@@ -70,12 +70,24 @@ export default {
     },
     newickAsString() {
       // Returns the Newick string of this phylogeny.
-      return this.phylogeny.newick || '()';
+      return this.newick;
+    },
+    phylogeny() {
+      // TODO fix hack
+      return { newick: this.newick };
+    baseURIForPhylogeny() {
+      return `http://example.org/#phylogeny${this.phylogenyIndex}`;
     },
     parsedNewick() {
-      return new PhylogenyWrapper(this.phylogeny).getParsedNewickWithIRIs(
-        this.$store.getters.getBaseURIForPhylogeny(this.phylogeny),
-        d3.layout.newick_parser,
+      if (has(window, 'd3') && has(d3, 'layout') && has(d3.layout, 'newick_parser')) {
+        return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
+          this.baseURIForPhylogeny,
+          d3.layout.newick_parser,
+        );
+      }
+
+      return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
+        this.baseURIForPhylogeny
       );
     },
     newickErrors() {
@@ -282,17 +294,22 @@ export default {
       this.pinningNodes = [];
       this.pinningNodeChildrenIRIs = new Set();
 
-      // Draw the tree.
-      this.tree
-        .size([
-          // height
-          0,
-          // width
-          $(`#phylogeny${this.phylogenyIndex}`).width() - 40,
-          // We need more space because our fonts are bigger than the default.
-        ])
-        .spacing_x(this.spacingX)
-        .update();
+      // Do we have a tree?
+      const tree = this.tree;
+
+      if (tree !== undefined) {
+        // Draw the tree.
+        this.tree
+          .size([
+            // height
+            0,
+            // width
+            $(`#phylogeny${this.phylogenyIndex}`).width() - 40,
+            // We need more space because our fonts are bigger than the default.
+          ])
+          .spacing_x(this.spacingX)
+          .update();
+      }
     },
   },
 };
