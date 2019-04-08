@@ -99,6 +99,9 @@ export default {
       return undefined;
     },
     tree() {
+      // Is Phylotree actually loaded? If not, bail out.
+      if (!has(window, 'd3') || !has(d3, 'layout') || !has(d3.layout, 'phylotree')) return;
+
       // Set up Phylotree.
       const tree = d3.layout.phylotree()
         .svg(d3.select(`#phylogeny${this.phylogenyIndex}`))
