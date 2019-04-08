@@ -34,6 +34,11 @@
 
 import { uniqueId, has } from 'lodash';
 import { PhylogenyWrapper } from '@phyloref/phyx';
+import Vue from 'vue';
+import { ResizeObserver } from 'vue-resize';
+
+// Set up ResizeObserver.
+Vue.component('ResizeObserver', ResizeObserver);
 
 /*
  * Note that this requires the Phylotree Javascript to be loaded in the HTML
