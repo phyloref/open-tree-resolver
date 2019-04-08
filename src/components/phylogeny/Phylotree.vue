@@ -58,6 +58,10 @@ export default {
       type: String,
       default: uniqueId(),
     },
+    reasoningResults: {
+      type: Object,
+      default: () => { return {}; },
+    },
   },
   data() {
     return {
@@ -69,17 +73,6 @@ export default {
     };
   },
   computed: {
-    reasoningResults() {
-      // Included so we can watch this for changes, see `watch` below.
-      return this.$store.state.phyx.reasoningResults;
-    },
-    newickAsString() {
-      // Returns the Newick string of this phylogeny.
-      return this.newick;
-    },
-    phylogeny() {
-      // TODO fix hack
-      return { newick: this.newick };
     baseURIForPhylogeny() {
       return `http://example.org/#phylogeny${this.phylogenyIndex}`;
     },
@@ -137,7 +130,7 @@ export default {
             // selected phyloreference, add an 'id' so we can jump to it
             // and a CSS class to render it differently from other labels.
             if (
-              this.$store.getters.getExpectedNodeLabelsOnPhylogeny(this.phylogeny, this.phyloref).includes(data.name)
+              this.$store.getters.getExpectedNodeLabelsOnPhylogeny({newick: this.newick}, this.phyloref).includes(data.name)
             ) {
               textLabel.attr('id', `current_expected_label_phylogeny_${this.phylogenyIndex}`);
               textLabel.classed('selected-internal-label', true);
@@ -251,8 +244,8 @@ export default {
       // If reasoning occurs, we'll need to redraw this tree.
       this.redrawTree();
     },
-    phylogeny() {
-      // If the phylogeny changed, redraw the tree.
+    newick() {
+      // If the Newick changes, redraw the tree.
       this.redrawTree();
     },
   },
