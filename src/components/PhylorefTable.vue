@@ -20,7 +20,7 @@
             </td>
           </tr>
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
-            <tr :key="phylorefIndex">
+            <tr :key="phylorefIndex"><!-- This :key only works as long as users can't reorder the phylorefs -->
               <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
                 <a
                   href="javascript: void(0)"
@@ -30,7 +30,7 @@
               </td>
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
-              <tr :key="getLabelForSpecifier(specifier)">
+              <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
                 <td>{{getSpecifierType(phyloref, specifier)}} {{getLabelForSpecifier(specifier)}}</td>
               </tr>
             </template>
