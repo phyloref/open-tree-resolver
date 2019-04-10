@@ -21,7 +21,7 @@
           </tr>
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
             <tr>
-              <td :rowspan="getSpecifiers(phyloref).length + 1">
+              <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
                 <a
                   href="javascript: void(0)"
                 >
@@ -29,10 +29,9 @@
                 </a>
               </td>
             </tr>
-            <template v-for="specifier of getSpecifiers(phyloref)">
+            <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
               <tr>
-                <td>{{getLabelForSpecifier(specifier)}}</td>
-                <td v-if="flagDisplayExpression">{{specifier}}</td>
+                <td>{{getSpecifierType(phyloref, specifier)}} {{getLabelForSpecifier(specifier)}}</td>
               </tr>
             </template>
           </template>
@@ -74,9 +73,10 @@
  * and the ability to add new phyloreferences.
  */
 
-import { has, isEqual, uniq, chunk } from 'lodash';
-import Vue from 'vue';
+import { has, isEqual, uniqWith, chunk } from 'lodash';
+import jQuery from 'jquery';
 import { mapState } from 'vuex';
+import { PhylorefWrapper } from '@phyloref/phyx';
 
 export default {
   name: 'PhylorefTable',
@@ -90,14 +90,6 @@ export default {
   computed: {
     phylorefsWithMoreThanOneSpecifier() {
       return this.loadedPhylorefs.filter(phyloref => (this.getSpecifiersForPhyloref(phyloref) || []).length > 1);
-    },
-    phylorefsWithEveryOTTIds() {
-      return this.loadedPhylorefs.filter(phyloref => {
-        const specifiers = this.getSpecifiersForPhyloref(phyloref);
-        if(specifiers.length > 0 &&
-          specifiers.length === specifiers.filter(specifier => this.getOpenTreeTaxonomyID(specifier) !== undefined).length
-        ) return true;
-      });
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
@@ -113,20 +105,22 @@ export default {
         url: 'examples/brochu_2003.jsonld',
         title: 'Brochu 2003',
       },
-    ]},
-    ...mapState({
-      loadedPhylorefs: state => state.phylorefs.loaded
-    })
+    ]}
   },
   methods: {
-    getLabelForSpecifier(specifier) {
-      return this.$store.getters.getLabelForSpecifier(specifier);
+    getSpecifierType(phyloref, specifier) {
+      if((phyloref.internalSpecifiers || []).indexOf(specifier) !== -1) return "includes";
+      if((phyloref.externalSpecifiers || []).indexOf(specifier) !== -1) return "excludes";
+      return "unknown";
     },
-    getSpecifiers(phyloref) {
-      if(phyloref === undefined) return { internalTUs: [], externalTUs: [], allTUs: [] };
 
-      // Returns a list of TUs for a particular phyloreference.
-      return this.getSpecifiersForPhyloref(phyloref);
+    getSpecifiersForPhyloref(phyloref) {
+      const specifiers = phyloref.internalSpecifiers || [];
+      return specifiers.concat(phyloref.externalSpecifiers || []);
+    },
+
+    getLabelForSpecifier(specifier) {
+      return PhylorefWrapper.getSpecifierLabel(specifier);
     },
 
     loadJSONLDFromURL(url) {
@@ -159,7 +153,7 @@ export default {
         return;
       }
 
-      const $fileInput = $(fileInputId);
+      const $fileInput = jQuery(fileInputId);
       if (!$fileInput) {
         alert('Programmer error: No file input element specified.');
         return;
@@ -188,6 +182,7 @@ export default {
         fr.readAsText(file);
       }
     },
+
     addPhyloref(phyloref) {
       // Check to make sure this phyloref hasn't already been added.
       if(this.loadedPhylorefs.find(phy => isEqual(phy, phyloref)) !== undefined) return;
@@ -224,168 +219,6 @@ export default {
       }
     },
 
-    getSpecifiersFromClassExpression(classExpr) {
-      let results = [];
-
-      // If classExpr is an array, then process each entry separately.
-      if(Array.isArray(classExpr)) {
-        return classExpr
-          .map(expr => getSpecifiersFromClassExpression(expr))
-          .reduce((acc, val) => acc.concat(val), []);
-      }
-
-      // If classExpr itself has an equivalentClass, then we should process that instead.
-      if(has(classExpr, 'equivalentClass')) {
-        results = results.concat(getSpecifiersFromClassExpression(classExpr.equivalentClass));
-      }
-
-      // If there are additional classes, then process those too.
-      if(has(classExpr, 'hasAdditionalClass')) {
-        results = results.concat(getSpecifiersFromClassExpression(classExpr.hasAdditionalClass));
-      }
-
-      if(getLabelForSpecifier(classExpr) !== undefined) {
-        results.push(classExpr);
-      } else {
-        if(has(classExpr, 'someValuesFrom')) {
-          results = results.concat(getSpecifiersFromClassExpression(classExpr.someValuesFrom));
-        }
-
-        if(has(classExpr, 'intersectionOf')) {
-          results = results.concat(getSpecifiersFromClassExpression(classExpr.intersectionOf));
-        }
-      }
-
-      return results;
-    },
-
-    getLabelForSpecifier(expr) {
-      // Recognize the three standard expression forms.
-      // Form 1. obo:CDAO_0000149 some (excludes_TU some ...) and (includes_TU some ...)
-      if (
-        has(expr, 'onProperty') && expr.onProperty === 'obo:CDAO_0000149' &&
-        has(expr, 'someValuesFrom') && has(expr.someValuesFrom, 'intersectionOf')
-      ) {
-        // There are two possibilities here. We could be looking at the MRCA of two TUs,
-        // or we could be looking at the MRCA of one MRCA and one TU. So figure out which
-        // it is.
-        if(expr.someValuesFrom.intersectionOf.length === 2
-          && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_TU'
-          && has(expr.someValuesFrom.intersectionOf[1], 'onProperty') && expr.someValuesFrom.intersectionOf[1].onProperty === 'phyloref:includes_TU'
-        ) {
-          // Two-TU MRCA!
-          const comp1 = this.getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[0]);
-          const comp2 = this.getLabelForSpecifierExpr(expr.someValuesFrom.intersectionOf[1]);
-
-          return `MRCA(${comp1.substr(25)}, ${comp2.substr(25)})`;
-        } else if(
-          expr.someValuesFrom.intersectionOf.length === 2
-          && has(expr.someValuesFrom.intersectionOf[0], 'onProperty') && expr.someValuesFrom.intersectionOf[0].onProperty === 'phyloref:excludes_lineage_to'
-        ) {
-          return undefined;
-        } else {
-          // No idea what this is!
-          return undefined;
-        }
-      }
-
-      // Form 2. includes_TU some (Name and scientificName some X)
-      else if (
-          (has(expr, 'onProperty') && expr.onProperty === 'phyloref:includes_TU') &&
-          (has(expr, 'someValuesFrom') && (
-            (has(expr.someValuesFrom, 'onProperty') && expr.someValuesFrom.onProperty === 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName') &&
-            (has(expr.someValuesFrom, 'someValuesFrom') &&
-              (has(expr.someValuesFrom.someValuesFrom, 'intersectionOf')) &&
-              (has(expr.someValuesFrom.someValuesFrom.intersectionOf[1], 'onProperty') &&
-                expr.someValuesFrom.someValuesFrom.intersectionOf[1].onProperty === 'dwc:scientificName')
-            )
-          )
-        )
-      ) {
-          return `includes scientific name ${expr.someValuesFrom.someValuesFrom.intersectionOf[1].hasValue}`;
-          // return JSON.stringify(expr);
-      }
-      // Form 3. excludes_TU some (Name and scientificName some X)
-      else if (
-          (has(expr, 'onProperty') && expr.onProperty === 'phyloref:excludes_TU') &&
-          (has(expr, 'someValuesFrom') && (
-              (has(expr.someValuesFrom, 'onProperty') && expr.someValuesFrom.onProperty === 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName') &&
-              (has(expr.someValuesFrom, 'someValuesFrom') &&
-                (has(expr.someValuesFrom.someValuesFrom, 'intersectionOf')) &&
-                (has(expr.someValuesFrom.someValuesFrom.intersectionOf[1], 'onProperty') &&
-                  expr.someValuesFrom.someValuesFrom.intersectionOf[1].onProperty === 'dwc:scientificName')
-              )
-          ))
-      ) {
-          return `excludes scientific name ${expr.someValuesFrom.someValuesFrom.intersectionOf[1].hasValue}`;
-          // return JSON.stringify(expr);
-      } else {
-          // Could not match!
-          return undefined;
-      }
-    },
-
-    convertTaxonomicUnitToExpr(type) {
-      return (tu) => {
-        const property = `phyloref:${type}_TU`;
-
-        if(!has(tu, 'referencesTaxonomicUnits')) return undefined;
-        // Only use the first taxonomic unit!
-        const tunit = tu.referencesTaxonomicUnits[0];
-        // Scientific name?
-        if (has(tunit, 'scientificNames')) {
-          return {
-            onProperty: property,
-            someValuesFrom: {
-              onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
-              someValuesFrom: {
-                intersectionOf: [
-                  {
-                    "@id": "obo:NOMEN_0000107"
-                  },
-                  {
-                    onProperty: 'dwc:scientificName',
-                    hasValue: tunit.scientificNames[0].scientificName
-                  }
-                ]
-              }
-            }
-          };
-        } else {
-          // We don't support anything else!
-          return undefined;
-        }
-      }
-    },
-
-    getSpecifiersForPhyloref(phyloref) {
-      // phyloref: Phyloreference to retrieve specifiers from.
-      //
-      // All phyloref objects should have internal and external specifier
-      // information. But first, let's see if we can extract it directly from
-      // the equivalentClass statement.
-
-      if(has(phyloref, 'internalSpecifiers')) {
-        // Old form! Let's just extract the taxonomic units and go with that.
-        const internals = (phyloref['internalSpecifiers'] || [])
-          .map(this.convertTaxonomicUnitToExpr('includes'))
-          .filter(tu => tu !== undefined);
-        const externals = (phyloref['externalSpecifiers'] || [])
-          .map(this.convertTaxonomicUnitToExpr('excludes'))
-          .filter(tu => tu !== undefined);
-
-        if(internals.length === 0) return [];
-        if(externals.length === 0) {
-          return internals;
-        }
-        return internals.concat(externals);
-      }
-
-      return uniqWith(
-        this.getSpecifiersFromClassExpression(phyloref || []),
-        isEqual
-      );
-    }
   }
 };
 </script>
