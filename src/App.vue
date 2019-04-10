@@ -38,19 +38,6 @@ export default {
   data: function() { return {
     OPEN_TREE_RESOLVER_VERSION: "0.1.0",
   }},
-  created() {
-    // If someone tries to navigate away from the window while the
-    // PHYX has been modified, ask users to confirm before leaving.
-    // Confirmation message to display to the user. Note that modern
-    // browsers do not display this message, but provide a generic
-    // "content has changed" dialog instead.
-    jQuery(window).on('beforeunload', () => {
-      const confirmationMessage = 'Your modifications have not been saved and will be lost if you close the Curation Tool. Confirm to discard your changes, or cancel to return to the Curation Tool.';
-
-      // if (!isEqual(this.loadedPhyx, this.currentPhyx)) return confirmationMessage;
-      return "";
-    });
-  },
 };
 </script>
 
