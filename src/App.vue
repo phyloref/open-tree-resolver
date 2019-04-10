@@ -15,10 +15,6 @@
  * Lays out the entire page, including inserting the (hidden) modals so they can be displayed.
  */
 
-import { isEqual } from 'lodash';
-import { mapState } from 'vuex';
-import jQuery from 'jquery';
-
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
 

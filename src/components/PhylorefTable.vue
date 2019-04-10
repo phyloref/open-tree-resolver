@@ -20,7 +20,7 @@
             </td>
           </tr>
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
-            <tr>
+            <tr :key="phylorefIndex">
               <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
                 <a
                   href="javascript: void(0)"
@@ -30,7 +30,7 @@
               </td>
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
-              <tr>
+              <tr :key="getLabelForSpecifier(specifier)">
                 <td>{{getSpecifierType(phyloref, specifier)}} {{getLabelForSpecifier(specifier)}}</td>
               </tr>
             </template>
@@ -73,9 +73,8 @@
  * and the ability to add new phyloreferences.
  */
 
-import { has, isEqual, uniqWith, chunk } from 'lodash';
+import { has, isEqual } from 'lodash';
 import jQuery from 'jquery';
-import { mapState } from 'vuex';
 import { PhylorefWrapper } from '@phyloref/phyx';
 
 export default {
@@ -127,7 +126,7 @@ export default {
       // Change the current PHYX to that in the provided URL.
       // Will ask the user to confirm before replacing it.
 
-      $.getJSON(url)
+      jQuery.getJSON(url)
         .done((data) => {
           this.extractPhyloreferencesFromJSONLD(data);
         })
