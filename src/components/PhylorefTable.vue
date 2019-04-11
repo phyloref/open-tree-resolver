@@ -6,9 +6,9 @@
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
         <thead>
-          <th >Label</th>
+          <th width="15%">Name</th>
           <th width="40%">Description</th>
-          <th>Specifier</th>
+          <th>Specifiers</th>
         </thead>
         <tbody>
           <tr
@@ -30,7 +30,7 @@
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
               <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
-                <td>{{getSpecifierType(phyloref, specifier)}} {{getLabelForSpecifier(specifier)}}</td>
+                <td>{{getSpecifierType(phyloref, specifier)}} <em>{{getLabelForSpecifier(specifier)}}</em></td>
               </tr>
             </template>
           </template>
