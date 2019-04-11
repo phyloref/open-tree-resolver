@@ -1,17 +1,9 @@
 <template>
   <div>
-    <template v-if="newickErrors">
-      <p>
-        <strong>Error parsing phylogeny.</strong>
-        Please
-        <a
-          href="javascript: void"
-          @click="$store.commit('changeDisplay', {phylogeny})"
-        >
-          edit the phylogeny
-        </a>
-        to fix this error.
-      </p>
+    <template v-if="newickErrors.length > 0">
+      <template v-for="(error, errorIndex) of newickErrors">
+        <p><strong>{{ error.title }}.</strong> {{ error.message }}</p>
+      </template>
     </template>
     <div
       v-else
@@ -48,7 +40,10 @@ Vue.component('ResizeObserver', ResizeObserver);
 export default {
   name: 'Phylotree',
   props: {
-    phylogeny: Object, // The phylogeny to render.
+    newick: {
+      type: String,
+      default: '()',
+    },
     phyloref: Object, // The phyloreference to highlight.
     spacingX: { // Spacing in the X axis in pixels.
       type: Number,
@@ -73,6 +68,9 @@ export default {
     };
   },
   computed: {
+    phylogeny() {
+      return { newick: this.newick };
+    },
     baseURIForPhylogeny() {
       return `http://example.org/#phylogeny${this.phylogenyIndex}`;
     },
@@ -89,11 +87,11 @@ export default {
       );
     },
     newickErrors() {
-      // Check to see if the newick could actually be parsed.
-      if (!has(this.parsedNewick, 'json') || this.parsedNewick.json === null) {
-        return (has(this.parsedNewick, 'error') ? this.parsedNewick.error : 'unknown error');
-      }
-      return undefined;
+      const errors = PhylogenyWrapper.getErrorsInNewickString(this.newick);
+
+      // For historical reason, we consider an empty Newick string as an error.
+      // We should not do this.
+      return errors.filter(error => error.title !== 'No phylogeny entered');
     },
     tree() {
       // Set up Phylotree.

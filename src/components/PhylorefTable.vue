@@ -143,28 +143,12 @@
       </div>
     </div>
 
-    <!-- Display the list of errors encountered when parsing this Newick string -->
-    <div
-      v-if="phylogenyNewickErrors.length !== 0"
-      class="card border-dark mt-2"
-    >
-      <h5 class="card-header bg-danger">
-        Errors occurred while parsing Newick string
-      </h5>
-      <div class="card-body">
-        <template v-for="(error, errorIndex) of phylogenyNewickErrors">
-          <p><strong>{{ error.title }}.</strong> {{ error.message }}</p>
-        </template>
-      </div>
-    </div>
-
     <!-- Display the phylogeny (unless there were Newick parsing errors) -->
     <div
-      v-if="phylogenyNewickErrors.length === 0"
       class="card border-dark mt-2"
     >
       <h5 class="card-header">
-        Phylogeny visualization
+        Phylogeny
       </h5>
       <div class="card-body">
         <Phylotree
@@ -224,13 +208,6 @@ export default {
       const ottIds = this.allSpecifiers.map(specifier => this.getOpenTreeTaxonomyID(specifier))
         .filter(x => x !== undefined && x !== null);
       return ottIds;
-    },
-    phylogenyNewickErrors() {
-      const errors = PhylogenyWrapper.getErrorsInNewickString(this.newick);
-
-      // For historical reason, we consider an empty Newick string as an error.
-      // We should not do this.
-      return errors.filter(error => error.title !== 'No phylogeny entered');
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
