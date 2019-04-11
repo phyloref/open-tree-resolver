@@ -9,6 +9,7 @@
           <th width="15%">Name</th>
           <th width="40%">Description</th>
           <th>Specifiers</th>
+          <th>Open Tree Taxonomy ID</th>
         </thead>
         <tbody>
           <tr
@@ -31,6 +32,12 @@
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
               <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
                 <td>{{getSpecifierType(phyloref, specifier)}} <span v-html="getLabelForSpecifierAsHTML(specifier)"></span></td>
+                <td>
+                  <template v-if="getOpenTreeTaxonomyID(specifier)">
+                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
+                    (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a>)
+                  </template>
+                </td>
               </tr>
             </template>
           </template>
@@ -62,9 +69,14 @@
           </a>
         </div>
       </div>
-      <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
+      <div class="btn-group ml-2" role="group" area-label="Edit phyloreference list">
         <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []">
           Clear phylorefs
+        </button>
+      </div>
+      <div class="btn-group ml-2" role="group" area-label="Open Tree Taxonomy tasks">
+        <button class="btn btn-primary" type="button" @click="queryOpenTreeTaxonomyIDs()">
+          Query specifiers against Open Tree of Life Taxonomy
         </button>
       </div>
     </div>
@@ -77,7 +89,8 @@
  * and the ability to add new phyloreferences.
  */
 
-import { has, isEqual } from 'lodash';
+import { has, isEqual, uniq, chunk } from 'lodash';
+import Vue from 'vue';
 import jQuery from 'jquery';
 import { PhylorefWrapper } from '@phyloref/phyx';
 
@@ -91,6 +104,9 @@ export default {
     };
   },
   computed: {
+    allSpecifiers() {
+      return this.loadedPhylorefs.map(phyloref => this.getSpecifiersForPhyloref(phyloref)).reduce((acc, val) => acc.concat(val), []);
+    },
     phylorefsWithMoreThanOneSpecifier() {
       return this.loadedPhylorefs.filter(phyloref => (this.getSpecifiersForPhyloref(phyloref) || []).length > 1);
     },
@@ -117,6 +133,70 @@ export default {
       // If there are '\n's in the text, replace them with <br>.
       return description.replace(/\n+/g, "<br />");
     },
+
+    getOpenTreeTaxonomyID(specifier) {
+      const matches = this.openTreeTaxonomyInfoByName[this.getScinameForSpecifier(specifier)];
+      if(matches && matches.length > 0) {
+        return matches[0]['taxon']['ott_id'];
+      }
+    },
+
+    queryOpenTreeTaxonomyIDs() {
+      // Calculate names from currently loaded specifiers.
+      const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
+      this.queryOpenTreeTaxonomyIDsForNames({names});
+    },
+
+    setOpenTreeTaxonomyInfoByNames(results) {
+      results.forEach(info => {
+        if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+          const name = info.name.trim();
+          // console.log("Setting", name, "to", info['matches']);
+          // Do we have any flags? If so, ignore this.
+          const flags = info.matches[0].taxon.flags || [];
+          // TODO do something cleverer when choosing between multiple matches
+          Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
+        }
+      });
+    },
+
+    queryOpenTreeTaxonomyIDsForNames(options) {
+      // Creates queries to the Open Tree Taxonomy for the provided names.
+      // This will return asynchonously; you need to call getOpenTreeTaxonomyID(name)
+      // to retrieve the results.
+      // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name:
+      //  - do_approximate_matching
+      // Deduplicate names to be queried.
+      const names = uniq(options.names)
+        .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
+        .sort();
+      // Step 1. Delete existing entries for the provided names.
+      this.setOpenTreeTaxonomyInfoByNames(names.map(name => {
+        return {
+          name,
+          matches: [],
+        };
+      }));
+      // OToL TNRS match_names has a limit of 1,000 names.
+      chunk(names, 999).forEach(chunk => {
+        options.names = chunk;
+        const data = JSON.stringify(options);
+        // Step 2. Spawn queries to OTT asking for the names.
+        jQuery.ajax({
+          type: 'POST',
+          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          data,
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: (data) => {
+            this.setOpenTreeTaxonomyInfoByNames(data.results);
+          },
+        })
+          .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
+      });
+    },
+
     getSpecifierType(phyloref, specifier) {
       if((phyloref.internalSpecifiers || []).indexOf(specifier) !== -1) return "includes";
       if((phyloref.externalSpecifiers || []).indexOf(specifier) !== -1) return "excludes";
@@ -136,7 +216,15 @@ export default {
       const label = PhylorefWrapper.getSpecifierLabel(specifier);
       if(label.startsWith("Specimen")) return label;
 
-      return label.replace(/^\w+ [\w\-]+/, "<em>$&</em>");
+      return label.replace(/^\w+ [a-z\-]+/, "<em>$&</em>");
+    },
+
+    getScinameForSpecifier(specifier) {
+      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      if(label.startsWith("Specimen")) return undefined;
+      const matches = label.match(/^\w+ [a-z\-]+/);
+      if(matches) return matches[0];
+      return undefined;
     },
 
     loadJSONLDFromURL(url) {
@@ -234,7 +322,6 @@ export default {
           this.addPhyloref(jsonld);
       }
     },
-
   }
 };
 </script>
