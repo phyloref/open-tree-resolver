@@ -6,9 +6,9 @@
     <div class="card-body p-0">
       <table class="table table-hover table-flush">
         <thead>
-          <th>Label</th>
+          <th >Label</th>
+          <th width="40%">Description</th>
           <th>Specifier</th>
-          <th v-if="flagDisplayExpression">Expression</th>
         </thead>
         <tbody>
           <tr
@@ -22,11 +22,10 @@
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
             <tr :key="phylorefIndex"><!-- This :key only works as long as users can't reorder the phylorefs -->
               <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
-                <a
-                  href="javascript: void(0)"
-                >
-                  {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-                </a>
+                {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+              </td>
+              <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
+                {{ phyloref.cladeDefinition || phyloref['obo:IAO_0000115'] || 'None' }}
               </td>
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
