@@ -58,11 +58,58 @@
                 </template>
               </td>
             </tr>
+            <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
+              <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
+                <td>{{getSpecifierType(phyloref, specifier)}} <span v-html="getLabelForSpecifierAsHTML(specifier)"></span></td>
+                <td>
+                  <template v-if="getOpenTreeTaxonomyID(specifier)">
+                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
+                    (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a>)
+                  </template>
+                </td>
+              </tr>
+            </template>
           </template>
-        </template>
-      </template>
-    </tbody>
-  </table>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer">
+      <div class="btn-group" role="group" area-label="Add phyloreferences">
+        <button
+          class="btn btn-primary"
+          href="javascript:;"
+          onclick="$('#load-jsonld').trigger('click')"
+        >
+          Add phyloreferences from JSON-LD file
+        </button>
+        <input
+          id="load-jsonld"
+          type="file"
+          multiple="true"
+          class="d-none"
+          @change="loadJSONLDFromFileInputById('#load-jsonld')"
+        >
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="addFromExamples" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          Add phyloreferences from example
+        </button>
+        <div class="dropdown-menu" aria-labelledby="addFromExamples">
+          <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
+            {{example.title}}
+          </a>
+        </div>
+      </div>
+      <div class="btn-group ml-2" role="group" area-label="Edit phyloreference list">
+        <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []">
+          Clear phylorefs
+        </button>
+      </div>
+      <div class="btn-group ml-2" role="group" area-label="Open Tree Taxonomy tasks">
+        <button class="btn btn-primary" type="button" @click="queryOpenTreeTaxonomyIDs()">
+          Query specifiers against Open Tree of Life Taxonomy
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
