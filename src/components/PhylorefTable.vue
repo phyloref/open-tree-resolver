@@ -25,7 +25,7 @@
                 {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
               </td>
               <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
-                {{ phyloref.cladeDefinition || phyloref['obo:IAO_0000115'] || 'None' }}
+                <span v-html="getPhylorefDescription(phyloref)"></span>
               </td>
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
@@ -111,6 +111,12 @@ export default {
     ]}
   },
   methods: {
+    getPhylorefDescription(phyloref) {
+      const description = phyloref.cladeDefinition || phyloref['obo:IAO_0000115'] || 'None';
+
+      // If there are '\n's in the text, replace them with <br>.
+      return description.replace(/\n+/g, "<br />");
+    },
     getSpecifierType(phyloref, specifier) {
       if((phyloref.internalSpecifiers || []).indexOf(specifier) !== -1) return "includes";
       if((phyloref.externalSpecifiers || []).indexOf(specifier) !== -1) return "excludes";
