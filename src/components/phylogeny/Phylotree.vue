@@ -25,7 +25,7 @@
  */
 
 import { uniqueId, has } from 'lodash';
-import { PhylogenyWrapper } from '@phyloref/phyx';
+import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { ResizeObserver } from 'vue-resize';
 
@@ -44,7 +44,6 @@ export default {
       type: String,
       default: '()',
     },
-    phyloref: Object, // The phyloreference to highlight.
     spacingX: { // Spacing in the X axis in pixels.
       type: Number,
       default: 20,
@@ -123,42 +122,6 @@ export default {
                 .attr('dx', '.3em')
                 .attr('dy', '.3em');
             }
-
-            // If the internal label has the same label as the currently
-            // selected phyloreference, add an 'id' so we can jump to it
-            // and a CSS class to render it differently from other labels.
-            if (
-              this.$store.getters.getExpectedNodeLabelsOnPhylogeny({newick: this.newick}, this.phyloref).includes(data.name)
-            ) {
-              textLabel.attr('id', `current_expected_label_phylogeny_${this.phylogenyIndex}`);
-              textLabel.classed('selected-internal-label', true);
-            } else {
-              textLabel.attr('id', '');
-              textLabel.classed('selected-internal-label', false);
-            }
-          }
-
-          // If the internal label has the same IRI as the currently selected
-          // phyloreference's reasoned node, further mark it as the resolved node.
-          //
-          // Note that this node might NOT be labeled, in which case we need to
-          // label it now!
-          if (
-            this.phyloref !== undefined && has(data, '@id')
-            && this.$store.getters.getResolvedNodesForPhylogeny(this.phylogeny, this.phyloref).includes(data['@id'])
-          ) {
-            // We found another pinning node!
-            this.pinningNodes.push(data);
-            this.recurseNodes(data, node => this.pinningNodeChildrenIRIs.add(node['@id']));
-
-            // Mark this node as the pinning node.
-            element.classed('pinning-node', true);
-
-            // Make the pinning node circle larger (twice its usual size of 3).
-            element.select('circle').attr('r', 6);
-
-            // Set its id to 'current_pinning_node_phylogeny{{phylogenyIndex}}'
-            element.attr('id', `current_pinning_node_phylogeny_${this.phylogenyIndex}`);
           }
 
           // Maybe this isn't a pinning node, but it is a child of a pinning node.
@@ -173,45 +136,10 @@ export default {
 
           if (data.name !== undefined && data.children === undefined) {
             // Labeled leaf node! Look for taxonomic units.
-            const tunits = this.$store.getters
-              .getTaxonomicUnitsForNodeLabel(this.phylogeny, data.name);
+            const tunits = TaxonomicUnitWrapper.getTaxonomicUnitsFromNodeLabel(data.name);
 
             if (tunits.length === 0) {
               element.classed('terminal-node-without-tunits', true);
-            } else if (this.phyloref !== undefined) {
-              // If this is a terminal node, we should set its ID to
-              // `current_expected_label_phylogeny${phylogenyIndex}` if it is
-              // the currently expected node label.
-              if (
-                has(this.phyloref, 'label')
-                && this.$store.getters
-                  .getExpectedNodeLabelsOnPhylogeny(this.phylogeny, this.phyloref)
-                  .includes(data.name)
-              ) {
-                textLabel.attr('id', `current_expected_label_phylogeny_${this.phylogenyIndex}`);
-              }
-
-              // We should highlight internal specifiers.
-              if (has(this.phyloref, 'internalSpecifiers')) {
-                if (this.phyloref.internalSpecifiers
-                  .some(specifier => this.$store.getters
-                    .getNodeLabelsMatchedBySpecifier(this.phylogeny, specifier)
-                    .includes(data.name))
-                ) {
-                  element.classed('internal-specifier-node', true);
-                }
-              }
-
-              // We should highlight external specifiers.
-              if (has(this.phyloref, 'externalSpecifiers')) {
-                if (this.phyloref.externalSpecifiers
-                  .some(specifier => this.$store.getters
-                    .getNodeLabelsMatchedBySpecifier(this.phylogeny, specifier)
-                    .includes(data.name))
-                ) {
-                  element.classed('external-specifier-node', true);
-                }
-              }
             }
           }
         })
@@ -234,10 +162,6 @@ export default {
     },
   },
   watch: {
-    phyloref() {
-      // We need to redraw the tree when phyloref changes.
-      this.redrawTree();
-    },
     reasoningResults() {
       // If reasoning occurs, we'll need to redraw this tree.
       this.redrawTree();
