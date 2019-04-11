@@ -44,11 +44,58 @@
                 <span v-html="getLabelForSpecifierAsHTML(specifier)"></span>
               </td>
             </tr>
+            <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
+              <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
+                <td>{{getSpecifierType(phyloref, specifier)}} <span v-html="getLabelForSpecifierAsHTML(specifier)"></span></td>
+                <td>
+                  <template v-if="getOpenTreeTaxonomyID(specifier)">
+                    <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
+                    (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a>)
+                  </template>
+                </td>
+              </tr>
+            </template>
           </template>
-        </template>
-      </template>
-    </tbody>
-  </table>
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer">
+      <div class="btn-group" role="group" area-label="Add phyloreferences">
+        <button
+          class="btn btn-primary"
+          href="javascript:;"
+          onclick="$('#load-jsonld').trigger('click')"
+        >
+          Add phyloreferences from JSON-LD file
+        </button>
+        <input
+          id="load-jsonld"
+          type="file"
+          multiple="true"
+          class="d-none"
+          @change="loadJSONLDFromFileInputById('#load-jsonld')"
+        >
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="addFromExamples" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          Add phyloreferences from example
+        </button>
+        <div class="dropdown-menu" aria-labelledby="addFromExamples">
+          <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
+            {{example.title}}
+          </a>
+        </div>
+      </div>
+      <div class="btn-group ml-2" role="group" area-label="Edit phyloreference list">
+        <button class="btn btn-danger" type="button" @click="loadedPhylorefs = []">
+          Clear phylorefs
+        </button>
+      </div>
+      <div class="btn-group ml-2" role="group" area-label="Open Tree Taxonomy tasks">
+        <button class="btn btn-primary" type="button" @click="queryOpenTreeTaxonomyIDs()">
+          Query specifiers against Open Tree of Life Taxonomy
+        </button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
@@ -83,6 +130,69 @@ export default {
 
       // If there are '\n's in the text, replace them with <br />.
       return description.replace(/\n+/g, "<br />");
+    },
+
+    getOpenTreeTaxonomyID(specifier) {
+      const matches = this.openTreeTaxonomyInfoByName[this.getScinameForSpecifier(specifier)];
+      if(matches && matches.length > 0) {
+        return matches[0]['taxon']['ott_id'];
+      }
+    },
+
+    queryOpenTreeTaxonomyIDs() {
+      // Calculate names from currently loaded specifiers.
+      const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
+      this.queryOpenTreeTaxonomyIDsForNames({names});
+    },
+
+    setOpenTreeTaxonomyInfoByNames(results) {
+      results.forEach(info => {
+        if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+          const name = info.name.trim();
+          // console.log("Setting", name, "to", info['matches']);
+          // Do we have any flags? If so, ignore this.
+          const flags = info.matches[0].taxon.flags || [];
+          // TODO do something cleverer when choosing between multiple matches
+          Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
+        }
+      });
+    },
+
+    queryOpenTreeTaxonomyIDsForNames(options) {
+      // Creates queries to the Open Tree Taxonomy for the provided names.
+      // This will return asynchonously; you need to call getOpenTreeTaxonomyID(name)
+      // to retrieve the results.
+      // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name:
+      //  - do_approximate_matching
+      // Deduplicate names to be queried.
+      const names = uniq(options.names)
+        .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
+        .sort();
+      // Step 1. Delete existing entries for the provided names.
+      this.setOpenTreeTaxonomyInfoByNames(names.map(name => {
+        return {
+          name,
+          matches: [],
+        };
+      }));
+      // OToL TNRS match_names has a limit of 1,000 names.
+      chunk(names, 999).forEach(chunk => {
+        options.names = chunk;
+        const data = JSON.stringify(options);
+        // Step 2. Spawn queries to OTT asking for the names.
+        jQuery.ajax({
+          type: 'POST',
+          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          data,
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: (data) => {
+            this.setOpenTreeTaxonomyInfoByNames(data.results);
+          },
+        })
+          .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
+      });
     },
 
     getSpecifierType(phyloref, specifier) {
