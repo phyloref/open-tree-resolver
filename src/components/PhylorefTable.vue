@@ -30,7 +30,7 @@
             </tr>
             <template v-for="specifier of getSpecifiersForPhyloref(phyloref)">
               <tr :key="'phyloref' + phylorefIndex + ', specifier: ' + getLabelForSpecifier(specifier)">
-                <td>{{getSpecifierType(phyloref, specifier)}} <em>{{getLabelForSpecifier(specifier)}}</em></td>
+                <td>{{getSpecifierType(phyloref, specifier)}} <span v-html="getLabelForSpecifierAsHTML(specifier)"></span></td>
               </tr>
             </template>
           </template>
@@ -124,6 +124,13 @@ export default {
 
     getLabelForSpecifier(specifier) {
       return PhylorefWrapper.getSpecifierLabel(specifier);
+    },
+
+    getLabelForSpecifierAsHTML(specifier) {
+      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      if(label.startsWith("Specimen")) return label;
+
+      return label.replace(/^\w+ [\w\-]+/, "<em>$&</em>");
     },
 
     loadJSONLDFromURL(url) {
