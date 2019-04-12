@@ -3,6 +3,7 @@
     <thead>
       <th width="15%">Name</th>
       <th width="40%">Description</th>
+      <th>Resolved Open Tree node</th>
       <th>Specifiers</th>
       <th>Open Tree Taxonomy ID</th>
     </thead>
