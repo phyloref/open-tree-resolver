@@ -5,7 +5,7 @@
         <p :key="errorIndex"><strong>{{ error.title }}.</strong> {{ error.message }}</p>
       </template>
     </template>
-    <div
+    <template
       v-else
       class="phylotreeContainer"
     >
@@ -14,7 +14,7 @@
         :id="'phylogeny_' + phylogenyIndex"
       />
       <ResizeObserver @notify="redrawTree()" />
-    </div>
+    </template>
   </div>
 </template>
 
@@ -104,6 +104,7 @@ export default {
           'left-right-spacing': 'fit-to-size',
           'top-bottom-spacing': 'fixed-step',
         })
+        .font_size(16)
         .style_nodes((element, data) => {
           // Instructions used to style nodes in Phylotree
           // - element: The D3 element of the node being styled
@@ -194,7 +195,7 @@ export default {
  */
 .node {
   /* Phylotree's CSS sets this to 10px; we prefer larger node labels */
-  font-size: 11pt;
+  font-size: 14pt;
 }
 
 /* Labels for internal nodes, whether phylorefs or not */
