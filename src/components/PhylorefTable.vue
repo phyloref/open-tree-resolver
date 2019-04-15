@@ -20,7 +20,7 @@
             </td>
           </tr>
           <template v-for="(phyloref, phylorefIndex) of loadedPhylorefs">
-            <tr :key="phylorefIndex"><!-- This :key only works as long as users can't reorder the phylorefs -->
+            <tr :key="phylorefIndex"><!-- This :key only works since users can't reorder the phylorefs -->
               <td :rowspan="getSpecifiersForPhyloref(phyloref).length + 1">
                 {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
               </td>
@@ -41,7 +41,7 @@
       <div class="btn-group" role="group" area-label="Add phyloreferences">
         <button
           class="btn btn-primary"
-          href="javascript: void(0)"
+          href="javascript:;"
           onclick="$('#load-jsonld').trigger('click')"
         >
           Add phyloreferences from JSON-LD file
@@ -84,6 +84,7 @@ import { PhylorefWrapper } from '@phyloref/phyx';
 export default {
   name: 'PhylorefTable',
   data: function () {
+    // Local variables for this component.
     return {
       flagDisplayExpression: false,
       loadedPhylorefs: [],
@@ -91,9 +92,6 @@ export default {
     };
   },
   computed: {
-    phylorefsWithMoreThanOneSpecifier() {
-      return this.loadedPhylorefs.filter(phyloref => (this.getSpecifiersForPhyloref(phyloref) || []).length > 1);
-    },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       {
@@ -112,37 +110,47 @@ export default {
   },
   methods: {
     getPhylorefDescription(phyloref) {
+      // Returns the clade definition of a particular phyloreference. Supports both
+      // Phyx and Model 2.0 JSON-LD descriptions. Will return 'None' if none could
+      // be found.
       const description = phyloref.cladeDefinition || phyloref['obo:IAO_0000115'] || 'None';
 
       // If there are '\n's in the text, replace them with <br>.
       return description.replace(/\n+/g, "<br />");
     },
+
     getSpecifierType(phyloref, specifier) {
+      // Get the type of a particular specifier, which means looking up which
+      // field it is in. Will return one of the following strings: "includes",
+      // "excludes" or "unknown".
       if((phyloref.internalSpecifiers || []).indexOf(specifier) !== -1) return "includes";
       if((phyloref.externalSpecifiers || []).indexOf(specifier) !== -1) return "excludes";
       return "unknown";
     },
 
     getSpecifiersForPhyloref(phyloref) {
+      // Return a list of all specifiers for a particular phyloreference.
+      // Is guaranteed to return a list (even if it's an empty list).
       const specifiers = phyloref.internalSpecifiers || [];
       return specifiers.concat(phyloref.externalSpecifiers || []);
     },
 
     getLabelForSpecifier(specifier) {
+      // Return a string describing this specifier.
       return PhylorefWrapper.getSpecifierLabel(specifier);
     },
 
     getLabelForSpecifierAsHTML(specifier) {
+      // Return a string describing this specifier with HTML elements to format
+      // particular elements, such as italicizing the scientific name.
       const label = PhylorefWrapper.getSpecifierLabel(specifier);
       if(label.startsWith("Specimen")) return label;
 
-      return label.replace(/^\w+ [\w\-]+/, "<em>$&</em>");
+      return label.replace(/^\w+ [\w\\-]+/, "<em>$&</em>");
     },
 
     loadJSONLDFromURL(url) {
-      // Change the current PHYX to that in the provided URL.
-      // Will ask the user to confirm before replacing it.
-
+      // Load phylorefs from a JSON-LD file from a particular url.
       jQuery.getJSON(url)
         .done((data) => {
           this.extractPhyloreferencesFromJSONLD(data);
@@ -157,10 +165,10 @@ export default {
     },
 
     loadJSONLDFromFileInputById(fileInputId) {
-      //
-      // Load a JSON file from the local file system using FileReader. fileInput
-      // needs to be an HTML element representing an <input type="file"> in which
-      // the user has selected the local file they wish to load.
+      // Load phylorefs from one or more JSON-LD files from the local file system
+      // using FileReader. fileInput needs to be an HTML element representing an
+      // <input type="file"> in which the user has selected the local file(s)
+      // they wish to load.
       //
       // This code is based on https://stackoverflow.com/a/21446426/27310
 
@@ -200,7 +208,9 @@ export default {
     },
 
     addPhyloref(phyloref) {
-      // Check to make sure this phyloref hasn't already been added.
+      // Add a new phyloref to the list of loadedPhylorefs. We use isEqual
+      // to prevent adding the same phyloreference more than once, but we will
+      // add different phyloreferences with the same '@id'.
       if(this.loadedPhylorefs.find(phy => isEqual(phy, phyloref)) !== undefined) return;
 
       // No previous match? Then add it in!
@@ -208,10 +218,7 @@ export default {
     },
 
     extractPhyloreferencesFromJSONLD(jsonld) {
-      // Extract phyloreferences from the provided JSONLD file and add them to
-      // state.loaded. We use isEqual to prevent adding the same phyloreference
-      // more than once, but we will add different phyloreferences with the
-      // same '@id'.
+      // Extract phyloreferences from the provided JSON-LD representation.
 
       // JSON-LD files sometimes contain an array of elements. In this case,
       // we should try adding every one.
@@ -228,13 +235,17 @@ export default {
       // If it was created by phyx2ontology, the phyloreferences can be recognized
       // has having a subClassOf 'phyloref:Phyloreference'. Let's look for that.
       if(has(jsonld, 'subClassOf')) {
+        // This entry might have multiple subclasses. If one of them is phyloref:Phyloreference,
+        // add it as a phyloreference.
         if(Array.isArray(jsonld.subClassOf) && jsonld.subClassOf.includes('phyloref:Phyloreference'))
           this.addPhyloref(jsonld);
+
+        // If this entry has a single subclass that is phyloref:Phyloreference,
+        // add it as a phyloreference.
         if(jsonld.subClassOf === 'phyloref:Phyloreference')
           this.addPhyloref(jsonld);
       }
     },
-
   }
 };
 </script>
