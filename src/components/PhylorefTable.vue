@@ -46,7 +46,7 @@
                 <span v-html="getLabelForSpecifierAsHTML(specifier)"></span>
               </td>
               <td>
-                <template v-if="getOpenTreeTaxonomyID(specifier)">
+                <template v-if="getOTTId(specifier)">
                   <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOTTId(specifier)">{{getOTTId(specifier)}}</a>
                   (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOTTId(specifier)">ott</a>)
                 </template>
