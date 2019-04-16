@@ -12,7 +12,7 @@
         v-if="phylorefs.length === 0"
         class="bg-white"
       >
-        <td colspan="4">
+        <td colspan="5">
           <center><em>No phyloreferences loaded</em></center>
         </td>
       </tr>
@@ -25,6 +25,7 @@
             <td>
               <span v-html="getPhylorefDescription(phyloref)"></span>
             </td>
+            <td>&nbsp;</td>
             <td>
               <center><em>No specifiers provided.</em></center>
             </td>
@@ -40,6 +41,9 @@
                 </td>
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   <span v-html="getPhylorefDescription(phyloref)"></span>
+                </td>
+                <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
+                  TODO Resolved node
                 </td>
               </template>
               <td>
