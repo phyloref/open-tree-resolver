@@ -15,7 +15,7 @@
             v-if="loadedPhylorefs.length === 0"
             class="bg-white"
           >
-            <td colspan="4">
+            <td colspan="3">
               <center><em>No phyloreferences loaded</em></center>
             </td>
           </tr>
@@ -156,7 +156,7 @@ export default {
     extractPhyloreferencesFromJSONLD(jsonld) {
       // Extract phyloreferences from the provided JSON-LD representation.
 
-      let addPhyloref = function(phyloref) {
+      let addPhyloref = (phyloref) => {
         // Add a new phyloref to the list of loadedPhylorefs. We use isEqual
         // to prevent adding the same phyloreference more than once, but we will
         // add different phyloreferences with the same '@id'.
