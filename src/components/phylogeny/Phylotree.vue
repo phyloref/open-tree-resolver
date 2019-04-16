@@ -52,19 +52,6 @@ export default {
       type: String,
       default: uniqueId(),
     },
-    reasoningResults: {
-      type: Object,
-      default: () => { return {}; },
-    },
-  },
-  data() {
-    return {
-      // List of pinning nodes to highlight for a particular phylogeny.
-      pinningNodes: [],
-      // List of pinning nodes and all their children, so the entire clade can be
-      // highlighted as needed.
-      pinningNodeChildrenIRIs: new Set(),
-    };
   },
   computed: {
     phylogeny() {
@@ -127,16 +114,6 @@ export default {
             }
           }
 
-          // Maybe this isn't a pinning node, but it is a child of a pinning node.
-          if (
-            has(data, '@id')
-            && this.pinningNodeChildrenIRIs.has(data['@id'])
-          ) {
-            // Apply a class.
-            // Note that this applies to the resolved-node too.
-            element.classed('descendant-of-pinning-node-node', true);
-          }
-
           if (data.name !== undefined && data.children === undefined) {
             // Labeled leaf node! Look for taxonomic units.
             const tunits = TaxonomicUnitWrapper.getTaxonomicUnitsFromNodeLabel(data.name);
@@ -145,30 +122,12 @@ export default {
               element.classed('terminal-node-without-tunits', true);
             }
           }
-        })
-        .style_edges((element, data) => {
-          // Is the parent a descendant of a pinning node? If so, we need to
-          // select this branch!
-          if (
-            has(data, 'source')
-            && has(data.source, '@id')
-            && this.pinningNodeChildrenIRIs.has(data.source['@id'])
-          ) {
-            // Apply a class to this branch.
-            element.classed('descendant-of-pinning-node-branch', true);
-          } else {
-            element.classed('descendant-of-pinning-node-branch', false);
-          }
         });
       tree(this.parsedNewick);
       return tree;
     },
   },
   watch: {
-    reasoningResults() {
-      // If reasoning occurs, we'll need to redraw this tree.
-      this.redrawTree();
-    },
     newick() {
       // If the Newick changes, redraw the tree.
       this.redrawTree();
@@ -213,10 +172,6 @@ export default {
       return nextID;
     },
     redrawTree() {
-      // Reset the pinning node information before redrawing.
-      this.pinningNodes = [];
-      this.pinningNodeChildrenIRIs = new Set();
-
       // Do we have a tree?
       const tree = this.tree;
 
@@ -286,44 +241,6 @@ export default {
 
 /* Node label for a terminal node without taxonomic units */
 .terminal-node-without-tunits {
-}
-
-/* The selected internal label on a phylogeny, whether determined to be the pinning node or not. */
-.selected-internal-label {
-    font-size: 16pt;
-    fill: rgb(0, 24, 168);
-}
-
-/*
- * An additional class for nodes that are the pinning node. When the phyloreference
- * resolves to a single terminal node, it will be laid out in this way, rather
- * than as an .internal-specifier-node.
- */
-.pinning-node text {
-    font-weight: bolder;
-}
-
-/*
- * The descendant-of-pinning-node class instructions below apply to the entire resolved node,
- * which includes the circle as well as the text label. We want to coordinate
- * colours between:
- *  - The circle that appears next to the node label,
- *  - The node label, whether internal or terminal, and
- *  - The branches descending from the pinning node.
- *
- * Note that .internal-specifier-node is set up to override this formatting, so
- * internal node labels will be formatted differently from other terminals
- * descending from the pinning node.
- */
-.descendant-of-pinning-node-node circle {
-  fill: rgb(0, 24, 168);
-}
-
-.descendant-of-pinning-node-node text {
-}
-
-.descendant-of-pinning-node-branch {
-  stroke: rgb(0, 24, 168);
 }
 
 /*
