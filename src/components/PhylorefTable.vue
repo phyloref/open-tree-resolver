@@ -20,7 +20,10 @@
             <td>
               {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
             </td>
-            <td colspan="2">
+            <td>
+              <span v-html="getPhylorefDescription(phyloref)"></span>
+            </td>
+            <td>
               <center><em>No specifiers provided.</em></center>
             </td>
           </tr>
