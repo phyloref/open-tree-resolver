@@ -9,7 +9,7 @@
         <div class="card-body p-0">
           <PhylorefTable
             :phylorefs="phylorefs"
-            :openTreeTaxonomyInfoByName="openTreeTaxonomyInfoByName"
+            :openTreeTaxonomyInfoBySpecifierLabel="openTreeTaxonomyInfoBySpecifierLabel"
           />
         </div>
         <div class="card-footer">
@@ -162,6 +162,23 @@ export default {
       const ottIds = this.allSpecifiers.map(specifier => this.getOpenTreeTaxonomyID(specifier))
         .filter(x => x !== undefined && x !== null);
       return ottIds;
+    },
+    openTreeTaxonomyInfoBySpecifierLabel() {
+      // Convert openTreeTaxonomyInfoByName into matches by specifier label.
+      const openTreeTaxonomyInfoBySpecifierLabel = {};
+      this.allSpecifiers.forEach(specifier => {
+        const specifierLabel = PhylorefWrapper.getSpecifierLabel(specifier);
+        if(!specifierLabel) return;
+
+        const sciname = this.getScinameForSpecifier(specifier);
+        if(!sciname) return;
+
+        const ottId = this.openTreeTaxonomyInfoByName[sciname];
+        if(!ottId) return;
+
+        openTreeTaxonomyInfoBySpecifierLabel[specifierLabel] = ottId;
+      });
+      return openTreeTaxonomyInfoBySpecifierLabel;
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
