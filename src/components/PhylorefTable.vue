@@ -47,8 +47,14 @@
               </td>
               <td>
                 <template v-if="getOpenTreeTaxonomyID(specifier)">
-                  <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
-                  (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a>)
+                  <a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)"
+                  >{{getOpenTreeTaxonomyID(specifier)}}</a>
+                  (<a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)"
+                  >ott</a>)
                 </template>
               </td>
             </tr>
