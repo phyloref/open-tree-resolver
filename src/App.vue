@@ -243,7 +243,7 @@ export default {
             // Redo query without unknown OTT Ids.
             jQuery.ajax({
               type: 'POST',
-              url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+              url: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
               data: JSON.stringify({
                 ott_ids: knownOttIds,
               }),
@@ -272,8 +272,7 @@ export default {
         if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
           const name = info.name.trim();
           // console.log("Setting", name, "to", info['matches']);
-          // Do we have any flags? If so, ignore this.
-          const flags = info.matches[0].taxon.flags || [];
+
           // TODO do something cleverer when choosing between multiple matches
           Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
         }

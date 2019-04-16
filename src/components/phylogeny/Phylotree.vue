@@ -2,7 +2,7 @@
   <div>
     <template v-if="newickErrors.length > 0">
       <template v-for="(error, errorIndex) of newickErrors">
-        <p><strong>{{ error.title }}.</strong> {{ error.message }}</p>
+        <p :key="errorIndex"><strong>{{ error.title }}.</strong> {{ error.message }}</p>
       </template>
     </template>
     <div
@@ -30,6 +30,7 @@
 import { uniqueId, has } from 'lodash';
 import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
+import jQuery from 'jquery';
 import { ResizeObserver } from 'vue-resize';
 
 // Set up ResizeObserver so we can redraw the tree if the window is resized.
@@ -52,7 +53,7 @@ export default {
     },
     baseURIForPhylogeny: {
       type: String,
-      default: () => `http://example.org/#phylogeny${this.phylogenyIndex}`,
+      default: `http://example.org/#phylogeny${this.phylogenyIndex}`,
     },
   },
   computed: {
@@ -60,10 +61,10 @@ export default {
       // Return a tree-like structure that represents a Newick string. Phylotree.js
       // is loaded,we use d3.layout.newick_parser; otherwise, we use the default
       // parser used by PhylogenyWrapper.
-      if (has(window, 'd3') && has(d3, 'layout') && has(d3.layout, 'newick_parser')) {
+      if (has(window, 'd3') && has(window.d3, 'layout') && has(window.d3.layout, 'newick_parser')) {
         return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
           this.baseURIForPhylogeny,
-          d3.layout.newick_parser,
+          window.d3.layout.newick_parser,
         );
       }
 
@@ -83,11 +84,11 @@ export default {
       // Set up Phylotree.js.
 
       // Is Phylotree actually loaded? If not, bail out.
-      if (!has(window, 'd3') || !has(d3, 'layout') || !has(d3.layout, 'phylotree')) return;
+      if (!has(window, 'd3') || !has(window.d3, 'layout') || !has(window.d3.layout, 'phylotree')) return;
 
       // Set up Phylotree.
-      const tree = d3.layout.phylotree()
-        .svg(d3.select(`#phylogeny${this.phylogenyIndex}`))
+      const tree = window.d3.layout.phylotree()
+        .svg(window.d3.select(`#phylogeny${this.phylogenyIndex}`))
         .options({
           'internal-names': true,
           transitions: false,
@@ -141,7 +142,7 @@ export default {
             // height
             0,
             // width
-            $(`#phylogeny${this.phylogenyIndex}`).width() - 40,
+            jQuery(`#phylogeny${this.phylogenyIndex}`).width() - 40,
             // We need more space because our fonts are bigger than the default.
           ])
           .spacing_x(this.spacingX)

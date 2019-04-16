@@ -32,7 +32,7 @@
         </template>
         <template v-else>
           <template v-for="(specifier, specifierIndex) of getSpecifiersForPhyloref(phyloref)">
-            <tr  :key="'phyloref_' + phylorefIndex + '_specifier_' + specifierIndex">
+            <tr :key="'phyloref_' + phylorefIndex + '_specifier_' + specifierIndex">
               <template v-if="specifierIndex === 0">
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
@@ -74,16 +74,10 @@
  *  - Open Tree Taxonomy ID
  */
 
-import { has } from 'lodash';
 import { PhylorefWrapper } from '@phyloref/phyx';
-
-import Phylotree from './phylogeny/Phylotree.vue';
 
 export default {
   name: 'PhylorefTable',
-  components: {
-    Phylotree,
-  },
   props: {
     phylorefs: {
       type: Array,
