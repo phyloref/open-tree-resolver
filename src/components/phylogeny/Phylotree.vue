@@ -20,8 +20,11 @@
 
 <script>
 /*
- * This component can be used to insert a phylogeny. It includes code for highlighing
- * the expecting and reasoned clade for a particular phyloreference.
+ * This component uses Phylotree.js to display a phylogeny, including internal
+ * nodes. It does not support highlighting resolved clades.
+ *
+ * Note that this requires the Phylotree Javascript to be loaded in the HTML header:
+ * I haven't figured out how to include phylotree.js from within Vue CLI yet.
  */
 
 import { uniqueId, has } from 'lodash';
@@ -29,18 +32,13 @@ import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { ResizeObserver } from 'vue-resize';
 
-// Set up ResizeObserver.
+// Set up ResizeObserver so we can redraw the tree if the window is resized.
 Vue.component('ResizeObserver', ResizeObserver);
-
-/*
- * Note that this requires the Phylotree Javascript to be loaded in the HTML
- * header: I haven't figured out how to include phylotree.js from within Vue CLI yet.
- */
 
 export default {
   name: 'Phylotree',
   props: {
-    newick: {
+    newick: { // The Newick string of the phylogeny to display.
       type: String,
       default: '()',
     },
@@ -52,15 +50,16 @@ export default {
       type: String,
       default: uniqueId(),
     },
+    baseURIForPhylogeny: {
+      type: String,
+      default: () => `http://example.org/#phylogeny${this.phylogenyIndex}`,
+    },
   },
   computed: {
-    phylogeny() {
-      return { newick: this.newick };
-    },
-    baseURIForPhylogeny() {
-      return `http://example.org/#phylogeny${this.phylogenyIndex}`;
-    },
     parsedNewick() {
+      // Return a tree-like structure that represents a Newick string. Phylotree.js
+      // is loaded,we use d3.layout.newick_parser; otherwise, we use the default
+      // parser used by PhylogenyWrapper.
       if (has(window, 'd3') && has(d3, 'layout') && has(d3.layout, 'newick_parser')) {
         return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
           this.baseURIForPhylogeny,
@@ -73,13 +72,16 @@ export default {
       );
     },
     newickErrors() {
+      // Return a list of errors found in this Newick string.
       const errors = PhylogenyWrapper.getErrorsInNewickString(this.newick);
 
       // For historical reason, we consider an empty Newick string as an error.
-      // We should not do this.
+      // Will be fixed in https://github.com/phyloref/phyx.js/issues/13
       return errors.filter(error => error.title !== 'No phylogeny entered');
     },
     tree() {
+      // Set up Phylotree.js.
+
       // Is Phylotree actually loaded? If not, bail out.
       if (!has(window, 'd3') || !has(d3, 'layout') || !has(d3.layout, 'phylotree')) return;
 
@@ -127,55 +129,12 @@ export default {
       return tree;
     },
   },
-  watch: {
-    newick() {
-      // If the Newick changes, redraw the tree.
-      this.redrawTree();
-    },
-  },
-  mounted() {
-    // Redraw the tree when this component is loaded for the first time.
-    this.redrawTree();
-  },
   methods: {
-    recurseNodes(node, func, nodeCount = 0, parentCount = undefined) {
-      // Recurse through PhyloTree nodes, executing function on each node.
-      //  - node: The node to recurse from. The function will be called on node
-      //          *before* being called on its children.
-      //  - func: The function to call on `node` and all of its children.
-      //  - nodeCount: `node` will be called with this nodeCount. All of its
-      //          children will be called with consecutively increasing nodeCounts.
-      //  - parentCount: The nodeCount associated with the parent of this node
-      //          within this run of recurseNodes. For instance, immediate children
-      //          of `node` will have a parentCount of 0. By default, `node` itself
-      //          will have a parentCount of `undefined`.
-      // When the function `func` is called, it is given three arguments:
-      //  - The current node object (initially: `node`)
-      //  - The count of the current node object (initially: `nodeCount`)
-      //  - The parent count of the current node object (initially: `parentCount`)
-      func(node, nodeCount, parentCount);
-
-      let nextID = nodeCount + 1;
-
-      // Recurse through all children of this node.
-      if (has(node, 'children')) {
-        node.children.forEach((child) => {
-          nextID = this.recurseNodes(
-            child,
-            func,
-            nextID,
-            nodeCount,
-          );
-        });
-      }
-
-      return nextID;
-    },
     redrawTree() {
-      // Do we have a tree?
+      // Redraw the tree set up earlier.
       const tree = this.tree;
 
-      if (tree !== undefined) {
+      if (tree) {
         // Draw the tree.
         this.tree
           .size([
@@ -188,6 +147,16 @@ export default {
           .spacing_x(this.spacingX)
           .update();
       }
+    },
+  },
+  mounted() {
+    // Redraw the tree when this component is loaded for the first time.
+    this.redrawTree();
+  },
+  watch: {
+    newick() {
+      // If the Newick changes, redraw the tree.
+      this.redrawTree();
     },
   },
 };
