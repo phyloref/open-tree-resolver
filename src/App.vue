@@ -92,7 +92,7 @@
         class="card border-dark mt-2"
       >
         <h5 class="card-header">
-          Phylogeny
+          Phylogeny visualization
         </h5>
         <div class="card-body">
           <Phylotree
@@ -144,11 +144,6 @@ export default {
     phylorefs: [],
     newick: "()",
     openTreeTaxonomyInfoByName: {},
-    PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
-    ONTOLOGY_BASEURI: "http://example.org/#",
-    reasoningInProgress: false,
-    reasoningResults: {},
-    currentNodes: {},
   }},
   computed: {
     allSpecifiers() {

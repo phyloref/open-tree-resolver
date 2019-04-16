@@ -47,8 +47,14 @@
               </td>
               <td>
                 <template v-if="getOpenTreeTaxonomyID(specifier)">
-                  <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)">{{getOpenTreeTaxonomyID(specifier)}}</a>
-                  (<a target="_blank" :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)">ott</a>)
+                  <a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)"
+                  >{{getOpenTreeTaxonomyID(specifier)}}</a>
+                  (<a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)"
+                  >ott</a>)
                 </template>
               </td>
             </tr>
@@ -61,14 +67,17 @@
 
 <script>
 /*
- * A table for displaying information about loaded phyloreferences. Specifically,
- * this includes:
- *  - Phyloreference name
+ * A table for displaying information about phyloreferences. It displays the following information:
+ *  - Phyloref label
  *  - Clade definition
- *  - List of specifiers
+ *  - Specifier
+ *  - Open Tree Taxonomy ID
  */
 
+import { has } from 'lodash';
 import { PhylorefWrapper } from '@phyloref/phyx';
+
+import Phylotree from './phylogeny/Phylotree.vue';
 
 export default {
   name: 'PhylorefTable',
