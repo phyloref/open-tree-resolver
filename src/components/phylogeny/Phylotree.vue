@@ -39,7 +39,7 @@ Vue.component('ResizeObserver', ResizeObserver);
 export default {
   name: 'Phylotree',
   props: {
-    // Properties
+    /* Inputs */
     newick: { // The Newick string of the phylogeny to display.
       type: String,
       default: '()',
@@ -56,7 +56,7 @@ export default {
       type: String,
     },
 
-    // Configuration
+    /* Configuration options */
     displayInternalNodes: { // Flag for whether to display internal node labels
       type: Boolean,
       default: false,
@@ -104,7 +104,6 @@ export default {
           'left-right-spacing': 'fit-to-size',
           'top-bottom-spacing': 'fixed-step',
         })
-        .font_size(16)
         .style_nodes((element, data) => {
           // Instructions used to style nodes in Phylotree
           // - element: The D3 element of the node being styled
@@ -194,8 +193,7 @@ export default {
  * refers only to the labels next to the nodes.
  */
 .node {
-  /* Phylotree's CSS sets this to 10px; we prefer larger node labels */
-  font-size: 14pt;
+  font-size: 11pt;
 }
 
 /* Labels for internal nodes, whether phylorefs or not */
