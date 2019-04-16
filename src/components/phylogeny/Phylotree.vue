@@ -10,8 +10,8 @@
       class="phylotreeContainer"
     >
       <svg
-        :id="'phylogeny' + phylogenyIndex"
         class="col-md-12 phylogeny"
+        :id="'phylogeny_' + phylogenyIndex"
       />
       <ResizeObserver @notify="redrawTree()" />
     </div>
@@ -90,7 +90,7 @@ export default {
 
       // Set up Phylotree.
       const tree = window.d3.layout.phylotree()
-        .svg(window.d3.select(`#phylogeny${this.phylogenyIndex}`))
+        .svg(window.d3.select(`#phylogeny_${this.phylogenyIndex}`))
         .options({
           'internal-names': true,
           transitions: false,
@@ -144,7 +144,7 @@ export default {
             // height
             0,
             // width
-            jQuery(`#phylogeny${this.phylogenyIndex}`).width() - 40,
+            jQuery(`#phylogeny_${this.phylogenyIndex}`).width(),
             // We need more space because our fonts are bigger than the default.
           ])
           .spacing_x(this.spacingX)
