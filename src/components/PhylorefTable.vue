@@ -80,7 +80,7 @@ export default {
       type: Array,
       default: () => { return []; },
     },
-    openTreeTaxonomyInfoByName: {
+    openTreeTaxonomyInfoBySpecifierLabel: {
       type: Object,
       default: () => { return {}; },
     },
@@ -101,7 +101,8 @@ export default {
     },
 
     getOpenTreeTaxonomyID(specifier) {
-      const matches = this.openTreeTaxonomyInfoByName[this.getScinameForSpecifier(specifier)];
+      // Returns the Open Tree Taxonomy ID for a particular specifier.
+      const matches = this.openTreeTaxonomyInfoBySpecifierLabel[this.getLabelForSpecifier(specifier)];
       if(matches && matches.length > 0) {
         return matches[0]['taxon']['ott_id'];
       }
