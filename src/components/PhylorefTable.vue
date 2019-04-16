@@ -80,7 +80,7 @@ export default {
       type: Array,
       default: () => { return []; },
     },
-    openTreeTaxonomyInfoByName: {
+    openTreeTaxonomyInfoBySpecifierLabel: {
       type: Object,
       default: () => { return {}; },
     },
