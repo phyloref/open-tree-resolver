@@ -53,23 +53,25 @@ export default {
     },
     baseURIForPhylogeny: {
       type: String,
-      default: `http://example.org/#phylogeny${this.phylogenyIndex}`,
     },
   },
   computed: {
+    baseURIForPhylogenyComputed() {
+      return this.baseURIForPhylogeny || `http://example.org/#phylogeny${this.phylogenyIndex}`;
+    },
     parsedNewick() {
       // Return a tree-like structure that represents a Newick string. Phylotree.js
       // is loaded,we use d3.layout.newick_parser; otherwise, we use the default
       // parser used by PhylogenyWrapper.
       if (has(window, 'd3') && has(window.d3, 'layout') && has(window.d3.layout, 'newick_parser')) {
         return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
-          this.baseURIForPhylogeny,
+          this.baseURIForPhylogenyComputed,
           window.d3.layout.newick_parser,
         );
       }
 
       return new PhylogenyWrapper({ newick: this.newick }).getParsedNewickWithIRIs(
-        this.baseURIForPhylogeny
+        this.baseURIForPhylogenyComputed
       );
     },
     newickErrors() {
