@@ -78,9 +78,6 @@ import { PhylorefWrapper } from '@phyloref/phyx';
 
 export default {
   name: 'PhylorefTable',
-  components: {
-    Phylotree,
-  },
   props: {
     phylorefs: {
       type: Array,
