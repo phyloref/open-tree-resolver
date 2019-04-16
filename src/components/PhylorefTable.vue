@@ -16,12 +16,14 @@
       </tr>
       <template v-for="(phyloref, phylorefIndex) of phylorefs">
         <template v-if="getSpecifiersForPhyloref(phyloref).length === 0">
-          <td>
-            {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
-          </td>
-          <td colspan="2">
-            <em>No specifiers provided.</em>
-          </td>
+          <tr>
+            <td>
+              {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
+            </td>
+            <td colspan="2">
+              <center><em>No specifiers provided.</em></center>
+            </td>
+          </tr>
         </template>
         <template v-else>
           <template v-for="(specifier, specifierIndex) of getSpecifiersForPhyloref(phyloref)">
