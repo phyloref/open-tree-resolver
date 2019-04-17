@@ -53,8 +53,11 @@
 
 <script>
 /*
- * A modal for displaying information about loaded phyloreferences,
- * and the ability to add new phyloreferences.
+ * A table for displaying information about loaded phyloreferences. Specifically,
+ * this includes:
+ *  - Phyloreference name
+ *  - Clade definition
+ *  - List of specifiers
  */
 
 import { has, isEqual } from 'lodash';
@@ -78,7 +81,7 @@ export default {
       // be found.
       const description = phyloref.cladeDefinition || phyloref['obo:IAO_0000115'] || 'None';
 
-      // If there are '\n's in the text, replace them with <br>.
+      // If there are '\n's in the text, replace them with <br />.
       return description.replace(/\n+/g, "<br />");
     },
 
@@ -96,11 +99,6 @@ export default {
       // Is guaranteed to return a list (even if it's an empty list).
       const specifiers = phyloref.internalSpecifiers || [];
       return specifiers.concat(phyloref.externalSpecifiers || []);
-    },
-
-    getLabelForSpecifier(specifier) {
-      // Return a string describing this specifier.
-      return PhylorefWrapper.getSpecifierLabel(specifier);
     },
 
     getLabelForSpecifierAsHTML(specifier) {

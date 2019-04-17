@@ -52,7 +52,8 @@
 
 <script>
 /*
- * Main application.
+ * Main application. Provides code for loading phyloreferences from JSON-LD,
+ * whether a local file or a URL.
  */
 
 import { has, isEqual } from 'lodash';
@@ -75,7 +76,10 @@ export default {
     AboutOpenTreeResolverModal,
   },
   data: function() { return {
+    // Open Tree Resolver version
     OPEN_TREE_RESOLVER_VERSION: "0.1.0",
+
+    // Currently loaded phyloreferences
     phylorefs: [],
   }},
   computed: {
