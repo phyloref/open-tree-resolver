@@ -11,6 +11,7 @@
             :phylorefs="phylorefs"
             :ottInfoBySpecifierLabel="ottInfoBySpecifierLabel"
             :reasoningResults="reasoningResults"
+            :nodesByID="nodesByID"
           />
         </div>
         <div class="card-footer">
@@ -39,7 +40,7 @@
             </div>
           </div>
           <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
-            <button class="btn btn-danger" type="button" @click="phylorefs = []">
+            <button class="btn btn-danger" type="button" @click="phylorefs = []; reasoningResults = {};">
               Clear phylorefs
             </button>
           </div>
@@ -108,7 +109,7 @@
               href="javascript:;"
               @click="reasonOverPhylogeny()"
             >
-              Reason over phylogeny
+              Reason over phylogeny <span v-if="reasoningInProgress"><em>(in progress)</em></span>
             </button>
           </div>
         </div>
@@ -159,6 +160,7 @@ export default {
     phylorefs: [],
     newick: "()",
     ottInfoByName: {},
+    nodesByID: {},
     reasoningResults: {},
     reasoningInProgress: false,
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
@@ -192,71 +194,6 @@ export default {
         ottInfoBySpecifierLabel[specifierLabel] = ottId;
       });
       return ottInfoBySpecifierLabel;
-    },
-    asOntology() {
-      const phylorefsWithEquivalentClass = this.phylorefs.filter(
-        phyloref => has(phyloref, 'equivalentClass')
-      );
-      // Add the phylogeny.
-      const phylogenyNodes = new PhylogenyWrapper({
-        newick: this.newick,
-      }).getNodesAsJSONLD(this.ONTOLOGY_BASEURI + 'phylogeny');
-
-      phylorefsWithEquivalentClass.forEach(phyloref => {
-        if(has(phyloref, 'label')) {
-          if(!has(phyloref, '@id')) {
-            phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
-          }
-        }
-      });
-
-      // Modify nodes to support Model 2.0 taxonomic units.
-      phylogenyNodes.forEach(nodeAsParam => {
-        const node = nodeAsParam;
-        // Set a context.
-        node['@context'] = this.PHYX_CONTEXT_JSON;
-
-        // Make sure this node has a '@type'.
-        if (!has(node, '@type')) node['@type'] = [];
-        if (!Array.isArray(node['@type'])) node['@type'] = [node['@type']];
-        // We replace "parent" with "obo:CDAO_0000179" so we get has_Parent
-        // relationships in our output ontology.
-        // To be fixed in https://github.com/phyloref/phyx.js/issues/10
-        if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
-
-        // Does this node have taxonomic units? If so, convert them into class expressions.
-        if (has(node, 'representsTaxonomicUnits')) {
-          node.representsTaxonomicUnits.forEach((tunit) => {
-            this.convertTUtoRestriction(tunit).forEach((restriction) => {
-              node['@type'].push({
-                '@type': 'owl:Restriction',
-                onProperty: 'obo:CDAO_0000187',
-                someValuesFrom: restriction,
-              });
-            });
-          });
-        }
-        // Now, rdfpipe can handle '@type's that contain restrictions,
-        // but OWLAPI can't. So let's translate all '@type's into
-        // 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'.
-        node['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] = node['@type']
-          .map(c => isString(c) ? { '@id': c } : c);
-        delete node['@type'];
-      });
-      // Finally, add a header for this ontology.
-      let ontologyHeader = [
-        {
-          '@context': this.PHYX_CONTEXT_JSON,
-          '@id': this.ONTOLOGY_BASEURI,
-          '@type': 'owl:Ontology',
-          'owl:imports': [
-            'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
-            'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
-            'http://ontology.phyloref.org/2018-12-14/tcan.owl',
-          ],
-        },
-      ];
-      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
@@ -480,6 +417,76 @@ export default {
       return results;
     },
 
+    getPhylorefsAndPhylogenyAsOntology() {
+      const phylorefsWithEquivalentClass = this.phylorefs.filter(
+        phyloref => has(phyloref, 'equivalentClass')
+      );
+      // Add the phylogeny.
+      const phylogenyNodes = new PhylogenyWrapper({
+        newick: this.newick,
+      }).getNodesAsJSONLD(this.ONTOLOGY_BASEURI + 'phylogeny');
+
+      phylorefsWithEquivalentClass.forEach(phyloref => {
+        if(has(phyloref, 'label')) {
+          if(!has(phyloref, '@id')) {
+            phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
+          }
+        }
+      });
+
+      // Track nodes by ID so we can look them up by @id later.
+      this.nodesByID = {};
+
+      // Modify nodes to support Model 2.0 taxonomic units.
+      phylogenyNodes.forEach(nodeAsParam => {
+        const node = nodeAsParam;
+        // Set a context.
+        node['@context'] = this.PHYX_CONTEXT_JSON;
+
+        // Make sure this node has a '@type'.
+        if (!has(node, '@type')) node['@type'] = [];
+        if (!Array.isArray(node['@type'])) node['@type'] = [node['@type']];
+        // We replace "parent" with "obo:CDAO_0000179" so we get has_Parent
+        // relationships in our output ontology.
+        // To be fixed in https://github.com/phyloref/phyx.js/issues/10
+        if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
+
+        // Does this node have taxonomic units? If so, convert them into class expressions.
+        if (has(node, 'representsTaxonomicUnits')) {
+          node.representsTaxonomicUnits.forEach((tunit) => {
+            this.convertTUtoRestriction(tunit).forEach((restriction) => {
+              node['@type'].push({
+                '@type': 'owl:Restriction',
+                onProperty: 'obo:CDAO_0000187',
+                someValuesFrom: restriction,
+              });
+            });
+          });
+        }
+        // Now, rdfpipe can handle '@type's that contain restrictions,
+        // but OWLAPI can't. So let's translate all '@type's into
+        // 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'.
+        node['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] = node['@type']
+          .map(c => isString(c) ? { '@id': c } : c);
+        delete node['@type'];
+        this.nodesByID[node['@id']] = node;
+      });
+      // Finally, add a header for this ontology.
+      let ontologyHeader = [
+        {
+          '@context': this.PHYX_CONTEXT_JSON,
+          '@id': this.ONTOLOGY_BASEURI,
+          '@type': 'owl:Ontology',
+          'owl:imports': [
+            'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
+            'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
+            'http://ontology.phyloref.org/2018-12-14/tcan.owl',
+          ],
+        },
+      ];
+      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
+    },
+
     reasonOverPhylogeny() {
       // Send JSON-LD to server for reasoning. Reasoning results will be stored in
       // this.reasoningResults.
@@ -497,7 +504,7 @@ export default {
         //  jsonld=%7B%5B%7B%22title%22%3A...
         // which translates to:
         //  jsonld={[{"title":...
-        jsonld: this.asOntology,
+        jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
       }).done((data) => {
         this.reasoningResults = data.phylorefs;
         // console.log('Data retrieved: ', data);
