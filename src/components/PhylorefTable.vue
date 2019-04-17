@@ -104,7 +104,9 @@ export default {
   },
   methods: {
 
-    /* Methods for accessing Open Tree resolved nodes */
+    /*
+     * Methods for accessing Open Tree resolved nodes
+     */
 
     getURLForOpenTreeResolvedNode(phyloref) {
       // Return the URL for the Open Tree resolved node for a particular phyloreference.
@@ -149,7 +151,9 @@ export default {
       return labels[0]; // Ignore other labels.
     },
 
-    /* Phyloref and specifier getters (should be moved into phyx.js) */
+    /*
+     * Phyloref and specifier getters (should be moved into phyx.js)
+     */
 
     getPhylorefDescription(phyloref) {
       // Returns the clade definition of a particular phyloreference. Supports both
