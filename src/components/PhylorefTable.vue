@@ -71,7 +71,9 @@ export default {
     },
   },
   methods: {
-    /* Phyloref and specifier getters (should be moved into phyx.js) */
+    /*
+     * Phyloref and specifier getters (should be moved into phyx.js)
+     */
 
     getPhylorefDescription(phyloref) {
       // Returns the clade definition of a particular phyloreference. Supports both

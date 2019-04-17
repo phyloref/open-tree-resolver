@@ -101,7 +101,9 @@ export default {
   },
   methods: {
 
-    /* Load phyloreferences from JSON-LD from URLs and files */
+    /*
+     * Load phyloreferences from JSON-LD from URLs and files
+     */
 
     loadJSONLDFromURL(url) {
       // Load phylorefs from a JSON-LD file from a given URL.
@@ -162,7 +164,9 @@ export default {
       }
     },
 
-    /* Phyloreference management */
+    /*
+     * Phyloreference management
+     */
 
     extractPhyloreferencesFromJSONLD(jsonld) {
       // Extract phyloreferences from the provided JSON-LD representation.
