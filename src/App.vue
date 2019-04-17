@@ -156,14 +156,28 @@ export default {
     // Open Tree Resolver version
     OPEN_TREE_RESOLVER_VERSION: "0.1.0",
 
-    // Currently loaded phyloreferences
+    // Currently loaded phyloreferences.
     phylorefs: [],
+
+    // The Newick string for the current phylogeny.
     newick: "()",
+
+    // Dictionary of Open Tree Taxonomy data by scientific name.
     ottInfoByName: {},
+
+    // Dictionary of nodes by their '@id'.
     nodesByID: {},
+
+    // Reasoning results from JPhyloRef.
     reasoningResults: {},
+
+    // Is reasoning currently in progress?
     reasoningInProgress: false,
+
+    // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
+
+    // URL to be used as the produced ontology's base URI.
     ONTOLOGY_BASEURI: "http://example.org/phyloref_open_tree_resolver#",
   }},
   computed: {
@@ -311,8 +325,8 @@ export default {
       // Creates queries to the Open Tree Taxonomy for the provided names.
       // This will return asynchonously; you need to call getOTTId(name)
       // to retrieve the results.
-      // Options can be anything from https://github.com/OToL/germinator/wiki/TNRS-API-v3#match_names, including:
-      //  - context_name:
+      // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name
       //  - do_approximate_matching
 
       let setOTTInfoByNames = (results) => {
@@ -357,7 +371,9 @@ export default {
       });
     },
 
-    /* Reasoning over phylogenies. */
+    /*
+     * Reasoning over phylogenies
+     */
 
     convertTUtoRestriction(tunit) {
       // Return an OWL restriction for a taxonomic unit or specifier.
@@ -418,13 +434,16 @@ export default {
     },
 
     getPhylorefsAndPhylogenyAsOntology() {
+      // Returns a JSON-LD ontology that can includes the current phylorefs and
+      // phylogeny.
+      // Note that we only support JSON-LD files as input -- we don't craft
+      // clade definitions if they haven't already been created in
+      // phyloref.equivalentClass.
+
+      // Add the phyloreferences.
       const phylorefsWithEquivalentClass = this.phylorefs.filter(
         phyloref => has(phyloref, 'equivalentClass')
       );
-      // Add the phylogeny.
-      const phylogenyNodes = new PhylogenyWrapper({
-        newick: this.newick,
-      }).getNodesAsJSONLD(this.ONTOLOGY_BASEURI + 'phylogeny');
 
       phylorefsWithEquivalentClass.forEach(phyloref => {
         if(has(phyloref, 'label')) {
@@ -434,13 +453,18 @@ export default {
         }
       });
 
+      // Add the phylogeny.
+      const phylogenyNodes = new PhylogenyWrapper({
+        newick: this.newick,
+      }).getNodesAsJSONLD(this.ONTOLOGY_BASEURI + 'phylogeny');
+
       // Track nodes by ID so we can look them up by @id later.
       this.nodesByID = {};
 
       // Modify nodes to support Model 2.0 taxonomic units.
       phylogenyNodes.forEach(nodeAsParam => {
         const node = nodeAsParam;
-        // Set a context.
+        // Set a JSON-LD context.
         node['@context'] = this.PHYX_CONTEXT_JSON;
 
         // Make sure this node has a '@type'.
