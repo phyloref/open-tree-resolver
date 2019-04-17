@@ -97,6 +97,10 @@ export default {
       type: Object,
       default: () => { return {}; },
     },
+    nodesByID: {
+      type: Object,
+      default: () => { return {}; },
+    },
   },
   methods: {
 
@@ -107,7 +111,19 @@ export default {
 
       const phylorefId = phyloref['@id'];
       if(phylorefId && has(this.reasoningResults, phylorefId)) {
-        return "http://example.org";
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        const label = this.getNodeLabel(node);
+        if(!label) return undefined;
+
+        const match = /^.*[_\s](.*?ott.*)$/.exec(label);
+        if(match == null) {
+            const matchMRCA = /^mrca.*$/.exec(label);
+            if(matchMRCA == null) return undefined;
+            return "https://tree.opentreeoflife.org/opentree/@" + matchMRCA[0];
+        }
+        return "https://tree.opentreeoflife.org/opentree/@" + match[1];
       }
       return undefined;
     },
@@ -117,22 +133,20 @@ export default {
 
       const phylorefId = phyloref['@id'];
       if(phylorefId && has(this.reasoningResults, phylorefId) && this.reasoningResults[phylorefId].length > 0) {
-        return this.reasoningResults[phylorefId][0];
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        return this.getNodeLabel(node);
       }
       return undefined;
     },
 
-    getOTTNodeId(node) {
+    getNodeLabel(node) {
+      // Return the label for a particular node.
+
       const labels = node.labels || [];
       if(labels.length == 0) return undefined;
-      const label = labels[0]; // Ignore other labels.
-      const match = /^(.*)[_\s](.*?ott.*)$/.exec(label);
-      if(match == null) {
-          const matchMRCA = /^mrca.*$/.exec(label);
-          if(matchMRCA == null) return undefined;
-          return ["", label];
-      }
-      return [match[1], match[2]];
+      return labels[0]; // Ignore other labels.
     },
 
     /* Phyloref and specifier getters (should be moved into phyx.js) */
