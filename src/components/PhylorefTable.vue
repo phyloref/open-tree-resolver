@@ -16,7 +16,7 @@
       </tr>
       <template v-for="(phyloref, phylorefIndex) of phylorefs">
         <template v-if="getSpecifiersForPhyloref(phyloref).length === 0">
-          <tr>
+          <tr :key="'phyloref_' + phylorefIndex">
             <td>
               {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
             </td>
@@ -30,7 +30,7 @@
         </template>
         <template v-else>
           <template v-for="(specifier, specifierIndex) of getSpecifiersForPhyloref(phyloref)">
-            <tr>
+            <tr  :key="'phyloref_' + phylorefIndex + '_specifier_' + specifierIndex">
               <template v-if="specifierIndex === 0">
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
@@ -60,8 +60,6 @@
  *  - List of specifiers
  */
 
-import { has, isEqual } from 'lodash';
-import jQuery from 'jquery';
 import { PhylorefWrapper } from '@phyloref/phyx';
 
 export default {
