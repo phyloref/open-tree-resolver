@@ -109,8 +109,10 @@
 
 <script>
 /*
- * Main application. Provides code for loading phyloreferences from JSON-LD,
- * whether a local file or a URL.
+ * Main application. Provides code for:
+ *  - loading phyloreferences from JSON-LD, whether a local file or a URL
+ *  - downloading Open Tree Taxonomy (OTT) IDs for each specifier
+ *  - downloading the induced subtree for the set of all OTT ids
  */
 
 import { has, isEqual, chunk, uniq } from 'lodash';
@@ -147,13 +149,12 @@ export default {
   }},
   computed: {
     allSpecifiers() {
+      // List of all currently loaded specifiers across all phylorefs.
       return this.phylorefs.map(phyloref => this.getSpecifiersForPhyloref(phyloref)).reduce((acc, val) => acc.concat(val), []);
     },
-    phylorefsWithMoreThanOneSpecifier() {
-      return this.phylorefs.filter(phyloref => (this.getSpecifiersForPhyloref(phyloref) || []).length > 1);
-    },
     ottIdsForAllSpecifiers() {
-      // Assumes that queryOpenTreeTaxonomyIDs has already been called!
+      // The list of all OTT ids across all phylorefs. This assumes that
+      // queryOpenTreeTaxonomyIDs has already been called!
       const ottIds = this.allSpecifiers.map(specifier => this.getOpenTreeTaxonomyID(specifier))
         .filter(x => x !== undefined && x !== null);
       return ottIds;
@@ -192,7 +193,9 @@ export default {
     ]},
   },
   methods: {
-    /* Methods for accessing specifiers on Phylorefs */
+    /*
+     * Methods for accessing specifiers on Phylorefs
+     */
 
     getSpecifiersForPhyloref(phyloref) {
       // Return a list of all specifiers for a particular phyloreference.
@@ -202,6 +205,10 @@ export default {
     },
 
     getScinameForSpecifier(specifier) {
+      // Returns the scientific name for a particular specifier.
+      // We currently extract this from the specifier label, although once we fix
+      // https://github.com/phyloref/phyx.js/issues/7, we should have a better
+      // scientific name object to use here.
       const label = PhylorefWrapper.getSpecifierLabel(specifier);
       if(label.startsWith("Specimen")) return undefined;
       const matches = label.match(/^\w+ [a-z-]+/);
@@ -210,18 +217,24 @@ export default {
     },
 
     getOpenTreeTaxonomyID(specifier) {
+      // Returns the OTT taxonomy ID for a particular specifier by scientific name.
       const matches = this.openTreeTaxonomyInfoByName[this.getScinameForSpecifier(specifier)];
       if(matches && matches.length > 0) {
         return matches[0]['taxon']['ott_id'];
       }
     },
 
-    /* Open Tree synthetic tree methods */
+    /*
+     * Open Tree synthetic tree methods
+     */
 
     downloadInducedSubtreeFromOpenTreeOfLife(ottIds) {
+      // Given a set of OTT ids, download the induced subtree from the Open Tree API.
+
       if(ottIds.length === 0) return;
 
-      // Induced subtree approach
+      // Query the induced subtree, i.e. a tree showing the relationships between all
+      // these OTT ids.
       jQuery.ajax({
         type: 'POST',
         url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
@@ -235,11 +248,17 @@ export default {
         },
       })
         .fail(x => {
+          // If some OTT ids were not found on the synthetic tree, the OTT API
+          // will return a list of nodes that could not be matched. We can remove
+          // these OTT ids from our list of queries and trying again.
           if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
             const unknownOttIds = x.responseJSON.unknown;
             console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIds);
+
+            // Remove the unknown OTT ids from the list of OTT ids to be queried.
             const knownOttIds = ottIds.filter(id => !has(unknownOttIds, "ott" + id));
             console.log("Query has been reduced to the following nodes: ", knownOttIds);
+
             // Redo query without unknown OTT Ids.
             jQuery.ajax({
               type: 'POST',
@@ -259,24 +278,14 @@ export default {
         });
     },
 
-    /* Open Tree Taxonomy methods */
+    /*
+     * Open Tree Taxonomy methods
+     */
 
     queryOpenTreeTaxonomyIDs() {
       // Calculate names from currently loaded specifiers.
       const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
       this.queryOpenTreeTaxonomyIDsForNames({names});
-    },
-
-    setOpenTreeTaxonomyInfoByNames(results) {
-      results.forEach(info => {
-        if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
-          const name = info.name.trim();
-          // console.log("Setting", name, "to", info['matches']);
-
-          // TODO do something cleverer when choosing between multiple matches
-          Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
-        }
-      });
     },
 
     queryOpenTreeTaxonomyIDsForNames(options) {
@@ -286,10 +295,23 @@ export default {
       // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
       //  - context_name:
       //  - do_approximate_matching
+
+      let setOpenTreeTaxonomyInfoByNames = (results) => {
+        // Given a set of matches, fill in the names in this.openTreeTaxonomyInfoByName.
+
+        results.forEach(info => {
+          if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+            const name = info.name.trim();
+            Vue.set(this.openTreeTaxonomyInfoByName, name, info['matches'] || []);
+          }
+        });
+      };
+
       // Deduplicate names to be queried.
       const names = uniq(options.names)
         .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
         .sort();
+
       // Step 1. Delete existing entries for the provided names.
       this.setOpenTreeTaxonomyInfoByNames(names.map(name => {
         return {
