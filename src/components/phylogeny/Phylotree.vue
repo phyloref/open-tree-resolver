@@ -5,7 +5,7 @@
         <p :key="errorIndex"><strong>{{ error.title }}.</strong> {{ error.message }}</p>
       </template>
     </template>
-    <template
+    <div
       v-else
       class="phylotreeContainer"
     >
@@ -14,7 +14,7 @@
         :id="'phylogeny_' + phylogenyIndex"
       />
       <ResizeObserver @notify="redrawTree()" />
-    </template>
+    </div>
   </div>
 </template>
 
@@ -39,7 +39,6 @@ Vue.component('ResizeObserver', ResizeObserver);
 export default {
   name: 'Phylotree',
   props: {
-    /* Inputs */
     newick: { // The Newick string of the phylogeny to display.
       type: String,
       default: '()',
@@ -54,11 +53,6 @@ export default {
     },
     baseURIForPhylogeny: {
       type: String,
-    },
-    /* Configuration options */
-    displayInternalNodes: {
-      type: Boolean,
-      default: false,
     },
   },
   computed: {
@@ -114,7 +108,7 @@ export default {
           if (has(data, 'name') && data.name !== '' && data.children) {
             // If the node has a label and has children (i.e. is an internal node),
             // we display it next to the node by creating a new 'text' element.
-            if (this.displayInternalNodes && textLabel.empty()) {
+            if (textLabel.empty()) {
               textLabel = element.append('text');
 
               // Place internal label to the left of the root node.
@@ -192,6 +186,7 @@ export default {
  * refers only to the labels next to the nodes.
  */
 .node {
+  /* Phylotree's CSS sets this to 10px; we prefer larger node labels */
   font-size: 11pt;
 }
 
