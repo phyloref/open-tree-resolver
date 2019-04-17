@@ -43,7 +43,7 @@
                   <span v-html="getPhylorefDescription(phyloref)"></span>
                 </td>
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
-                  <a :href="getURLForOpenTreeResolvedNode(phyloref)">{{getLabelForOpenTreeResolvedNode(phyloref)}}</a>
+                  <a target="_blank" :href="getURLForOpenTreeResolvedNode(phyloref)">{{getLabelForOpenTreeResolvedNode(phyloref)}}</a>
                 </td>
               </template>
               <td>
