@@ -313,7 +313,7 @@ export default {
         .sort();
 
       // Step 1. Delete existing entries for the provided names.
-      this.setOpenTreeTaxonomyInfoByNames(names.map(name => {
+      setOpenTreeTaxonomyInfoByNames(names.map(name => {
         return {
           name,
           matches: [],
@@ -331,7 +331,7 @@ export default {
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
           success: (data) => {
-            this.setOpenTreeTaxonomyInfoByNames(data.results);
+            setOpenTreeTaxonomyInfoByNames(data.results);
           },
         })
           .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
