@@ -109,7 +109,7 @@ export default {
       const label = PhylorefWrapper.getSpecifierLabel(specifier);
       if(label.startsWith("Specimen")) return label;
 
-      return label.replace(/^\w+ [\w-]+/, "<em>$&</em>");
+      return label.replace(/^\w+ [a-z-]+/, "<em>$&</em>");
     },
   }
 };
