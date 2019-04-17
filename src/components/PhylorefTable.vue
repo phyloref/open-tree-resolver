@@ -105,7 +105,9 @@ export default {
 
     getOpenTreeTaxonomyID(specifier) {
       // Returns the Open Tree Taxonomy ID for a particular specifier.
-      const matches = this.openTreeTaxonomyInfoBySpecifierLabel[this.getLabelForSpecifier(specifier)];
+      const matches = this.openTreeTaxonomyInfoBySpecifierLabel[
+        PhylorefWrapper.getSpecifierLabel(specifier)
+      ];
       if(matches && matches.length > 0) {
         return matches[0]['taxon']['ott_id'];
       }
