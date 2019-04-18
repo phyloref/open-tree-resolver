@@ -2,7 +2,42 @@
   <div id="app">
     <TopNavigationBar :version="OPEN_TREE_RESOLVER_VERSION" />
     <div id="wrapper">
-      <div class="card border-dark">
+      <!-- Display some stats about specifier matching and phyloref resolution -->
+      <div
+        class="card border-dark"
+      >
+        <h5 class="card-header">
+          Summary
+        </h5>
+        <div class="card-body p-0">
+          <table class="table table-hover table-flush mb-0">
+            <tbody>
+              <tr>
+                <td>Number of phyloreferences</td>
+                <td>{{phylorefs.length}}</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td>Number of phyloreferences with resolved nodes</td>
+                <td>{{phylorefsWithResolvedNodes.length}}</td>
+                <td>{{(phylorefsWithResolvedNodes.length/phylorefs.length*100).toFixed(2)}}%</td>
+              </tr>
+              <tr>
+                <td>Number of unique specifiers</td>
+                <td>{{allSpecifiers.length}}</td>
+                <td>&nbsp;</td>
+              </tr>
+              <tr>
+                <td>Number of specifiers with Open Tree Taxonomy IDs</td>
+                <td>{{ottIdsForAllSpecifiers.length}}</td>
+                <td>{{(ottIdsForAllSpecifiers.length/allSpecifiers.length*100).toFixed(2)}}%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card border-dark mt-2">
         <h5 class="card-header border-dark">
           Phyloreferences
         </h5>
@@ -183,7 +218,10 @@ export default {
   computed: {
     allSpecifiers() {
       // List of all currently loaded specifiers across all phylorefs.
-      return this.phylorefs.map(phyloref => this.getSpecifiersForPhyloref(phyloref)).reduce((acc, val) => acc.concat(val), []);
+      return uniq(this.phylorefs.map(phyloref => this.getSpecifiersForPhyloref(phyloref)).reduce((acc, val) => acc.concat(val), []));
+    },
+    phylorefsWithResolvedNodes() {
+      return this.phylorefs.filter(phyloref => has(this.reasoningResults, phyloref['@id']) && this.reasoningResults[phyloref['@id']].length > 0);
     },
     ottIdsForAllSpecifiers() {
       // The list of all OTT ids across all phylorefs. This assumes that
