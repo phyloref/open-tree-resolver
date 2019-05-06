@@ -9,6 +9,7 @@
         <div class="card-body p-0">
           <PhylorefTable
             :phylorefs="phylorefs"
+            :ottInfoBySpecifierLabel="ottInfoBySpecifierLabel"
           />
         </div>
         <div class="card-footer">
@@ -41,6 +42,62 @@
               Clear phylorefs
             </button>
           </div>
+          <div class="btn-group ml-2" role="group" area-label="Open Tree Taxonomy tasks">
+            <button class="btn btn-primary" type="button" @click="queryOTTIds()">
+              Query specifiers against Open Tree of Life Taxonomy
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-dark mt-2">
+        <h5 class="card-header border-dark">
+          Phylogeny
+        </h5>
+        <div class="card-body">
+          <form>
+            <div class="form-group row">
+              <label
+                for="newick"
+                class="col-md-2 control-label"
+              >
+                Newick
+              </label>
+              <div class="col-md-10 input-group">
+                <textarea
+                  v-model.lazy="newick"
+                  rows="3"
+                  class="form-control"
+                  placeholder="Enter Newick string for phylogeny here"
+                />
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer">
+          <div class="btn-group" role="group" area-label="Look up trees on the Open Tree of Life">
+            <button
+              class="btn btn-primary"
+              href="javascript:;"
+              @click="downloadInducedSubtreeFromOToL(ottIdsForAllSpecifiers)"
+            >
+              Download induced subtree from the Open Tree of Life
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display the phylogeny (unless there were Newick parsing errors) -->
+      <div
+        class="card border-dark mt-2"
+      >
+        <h5 class="card-header">
+          Phylogeny visualization
+        </h5>
+        <div class="card-body">
+          <Phylotree
+            :newick="newick"
+          />
         </div>
       </div>
     </div>
@@ -52,18 +109,23 @@
 
 <script>
 /*
- * Main application. Provides code for loading phyloreferences from JSON-LD,
- * whether a local file or a URL.
+ * Main application. Provides code for:
+ *  - loading phyloreferences from JSON-LD, whether a local file or a URL
+ *  - downloading Open Tree Taxonomy (OTT) Ids for each specifier
+ *  - downloading the induced subtree for the set of all OTT ids
  */
 
-import { has, isEqual } from 'lodash';
+import { has, isEqual, chunk, uniq } from 'lodash';
 import jQuery from 'jquery';
+import { PhylorefWrapper } from '@phyloref/phyx';
+import Vue from 'vue';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
 
 // Major UI components.
 import PhylorefTable from './components/PhylorefTable.vue';
+import Phylotree from './components/phylogeny/Phylotree.vue';
 
 // Modal dialogs to be displayed above the UI.
 import AboutOpenTreeResolverModal from './components/modals/AboutOpenTreeResolverModal.vue';
@@ -74,6 +136,7 @@ export default {
     TopNavigationBar,
     PhylorefTable,
     AboutOpenTreeResolverModal,
+    Phylotree,
   },
   data: function() { return {
     // Open Tree Resolver version
@@ -81,8 +144,38 @@ export default {
 
     // Currently loaded phyloreferences
     phylorefs: [],
+    newick: "()",
+    ottInfoByName: {},
   }},
   computed: {
+    allSpecifiers() {
+      // List of all currently loaded specifiers across all phylorefs.
+      return this.phylorefs.map(phyloref => this.getSpecifiersForPhyloref(phyloref)).reduce((acc, val) => acc.concat(val), []);
+    },
+    ottIdsForAllSpecifiers() {
+      // The list of all OTT ids across all phylorefs. This assumes that
+      // queryOTTIds has already been called!
+      const ottIds = this.allSpecifiers.map(specifier => this.getOTTId(specifier))
+        .filter(x => x !== undefined && x !== null);
+      return ottIds;
+    },
+    ottInfoBySpecifierLabel() {
+      // Convert ottInfoByName into matches by specifier label.
+      const ottInfoBySpecifierLabel = {};
+      this.allSpecifiers.forEach(specifier => {
+        const specifierLabel = PhylorefWrapper.getSpecifierLabel(specifier);
+        if(!specifierLabel) return;
+
+        const sciname = this.getScinameForSpecifier(specifier);
+        if(!sciname) return;
+
+        const ottId = this.ottInfoByName[sciname];
+        if(!ottId) return;
+
+        ottInfoBySpecifierLabel[specifierLabel] = ottId;
+      });
+      return ottInfoBySpecifierLabel;
+    },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       {
@@ -100,6 +193,150 @@ export default {
     ]},
   },
   methods: {
+    /*
+     * Methods for accessing specifiers on Phylorefs
+     */
+
+    getSpecifiersForPhyloref(phyloref) {
+      // Return a list of all specifiers for a particular phyloreference.
+      // Is guaranteed to return a list (even if it's an empty list).
+      const specifiers = phyloref.internalSpecifiers || [];
+      return specifiers.concat(phyloref.externalSpecifiers || []);
+    },
+
+    getScinameForSpecifier(specifier) {
+      // Returns the scientific name for a particular specifier.
+      // We currently extract this from the specifier label, although once we fix
+      // https://github.com/phyloref/phyx.js/issues/7, we should have a better
+      // scientific name object to use here.
+      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      if(label.startsWith("Specimen")) return undefined;
+      const matches = label.match(/^\w+ [a-z-]+/);
+      if(matches) return matches[0];
+      return undefined;
+    },
+
+    getOTTId(specifier) {
+      // Returns the OTT taxonomy ID for a particular specifier by scientific name.
+      const matches = this.ottInfoByName[this.getScinameForSpecifier(specifier)];
+      if(matches && matches.length > 0) {
+        return matches[0]['taxon']['ott_id'];
+      }
+    },
+
+    /*
+     * Open Tree synthetic tree methods
+     */
+
+    downloadInducedSubtreeFromOToL(ottIds) {
+      // Given a set of OTT ids, download the induced subtree from the Open Tree API.
+
+      if(ottIds.length === 0) return;
+
+      // Query the induced subtree, i.e. a tree showing the relationships between all
+      // these OTT ids.
+      jQuery.ajax({
+        type: 'POST',
+        url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+        data: JSON.stringify({
+          ott_ids: ottIds,
+        }),
+        contentType: 'application/json; charset=utf-8',
+        dataType: 'json',
+        success: (data) => {
+          this.newick = data.newick;
+        },
+      })
+        .fail(x => {
+          // If some OTT ids were not found on the synthetic tree, the OTT API
+          // will return a list of nodes that could not be matched. We can remove
+          // these OTT ids from our list of queries and trying again.
+          if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
+            const unknownOttIds = x.responseJSON.unknown;
+            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIds);
+
+            // Remove the unknown OTT ids from the list of OTT ids to be queried.
+            const knownOttIds = ottIds.filter(id => !has(unknownOttIds, "ott" + id));
+            console.log("Query has been reduced to the following nodes: ", knownOttIds);
+
+            // Redo query without unknown OTT Ids.
+            jQuery.ajax({
+              type: 'POST',
+              url: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+              data: JSON.stringify({
+                ott_ids: knownOttIds,
+              }),
+              contentType: 'application/json; charset=utf-8',
+              dataType: 'json',
+              success: (data) => {
+                this.newick = data.newick;
+              },
+            }).fail(x => console.log("Error accessing Open Tree induced_subtree", x));
+          } else {
+            console.log("Error accessing Open Tree induced_subtree", x);
+          }
+        });
+    },
+
+    /*
+     * Open Tree Taxonomy methods
+     */
+
+    queryOTTIds() {
+      // Calculate names from currently loaded specifiers.
+      const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
+      this.queryOTTIdsForNames({names});
+    },
+
+    queryOTTIdsForNames(options) {
+      // Creates queries to the Open Tree Taxonomy for the provided names.
+      // This will return asynchonously; you need to call getOTTId(name)
+      // to retrieve the results.
+      // Options can be anything from https://github.com/OToL/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name:
+      //  - do_approximate_matching
+
+      let setOTTInfoByNames = (results) => {
+        // Given a set of matches, fill in the names in this.ottInfoByName.
+
+        results.forEach(info => {
+          if(has(info, 'name') && info.name && has(info, 'matches') && info.matches && info.matches.length > 0) {
+            const name = info.name.trim();
+            Vue.set(this.ottInfoByName, name, info['matches'] || []);
+          }
+        });
+      };
+
+      // Deduplicate names to be queried.
+      const names = uniq(options.names)
+        .filter(name => name !== undefined && name !== null) // Eliminate any undefineds or nulls.
+        .sort();
+
+      // Step 1. Delete existing entries for the provided names.
+      setOTTInfoByNames(names.map(name => {
+        return {
+          name,
+          matches: [],
+        };
+      }));
+      // OToL TNRS match_names has a limit of 1,000 names.
+      chunk(names, 999).forEach(chunk => {
+        options.names = chunk;
+        const data = JSON.stringify(options);
+        // Step 2. Spawn queries to OTT asking for the names.
+        jQuery.ajax({
+          type: 'POST',
+          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          data,
+          contentType: 'application/json; charset=utf-8',
+          dataType: 'json',
+          success: (data) => {
+            setOTTInfoByNames(data.results);
+          },
+        })
+          .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
+      });
+    },
 
     /*
      * Load phyloreferences from JSON-LD from URLs and files
@@ -110,7 +347,7 @@ export default {
 
       jQuery.getJSON(url)
         .done((data) => {
-          this.extractPhyloreferencesFromJSONLD(data);
+          this.extractPhylorefsFromJSONLD(data);
         })
         .fail((error) => {
           if (error.status === 200) {
@@ -158,7 +395,7 @@ export default {
           const lines = e.target.result;
           const jsonld = JSON.parse(lines);
 
-          this.extractPhyloreferencesFromJSONLD(jsonld);
+          this.extractPhylorefsFromJSONLD(jsonld);
         });
         fr.readAsText(file);
       }
@@ -168,7 +405,7 @@ export default {
      * Phyloreference management
      */
 
-    extractPhyloreferencesFromJSONLD(jsonld) {
+    extractPhylorefsFromJSONLD(jsonld) {
       // Extract phyloreferences from the provided JSON-LD representation.
 
       let addPhyloref = (phyloref) => {
@@ -184,7 +421,7 @@ export default {
       // JSON-LD files sometimes contain an array of elements. In this case,
       // we should try adding every one.
       if(Array.isArray(jsonld)) {
-        jsonld.forEach(element => this.extractPhyloreferencesFromJSONLD(element));
+        jsonld.forEach(element => this.extractPhylorefsFromJSONLD(element));
       }
 
       // If this was generated by the Authoring Tool, then we can find phyloreferences

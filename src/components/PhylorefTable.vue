@@ -4,13 +4,14 @@
       <th width="15%">Name</th>
       <th width="40%">Description</th>
       <th>Specifiers</th>
+      <th>Open Tree Taxonomy ID</th>
     </thead>
     <tbody>
       <tr
         v-if="phylorefs.length === 0"
         class="bg-white"
       >
-        <td colspan="3">
+        <td colspan="4">
           <center><em>No phyloreferences loaded</em></center>
         </td>
       </tr>
@@ -26,11 +27,12 @@
             <td>
               <center><em>No specifiers provided.</em></center>
             </td>
+            <td>&nbsp;</td>
           </tr>
         </template>
         <template v-else>
           <template v-for="(specifier, specifierIndex) of getSpecifiersForPhyloref(phyloref)">
-            <tr  :key="'phyloref_' + phylorefIndex + '_specifier_' + specifierIndex">
+            <tr :key="'phyloref_' + phylorefIndex + '_specifier_' + specifierIndex">
               <template v-if="specifierIndex === 0">
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   {{ phyloref.label || `Phyloref ${phylorefIndex + 1}` }}
@@ -43,6 +45,18 @@
                 {{getSpecifierType(phyloref, specifier)}}
                 <span v-html="getLabelForSpecifierAsHTML(specifier)"></span>
               </td>
+              <td>
+                <template v-if="getOTTId(specifier)">
+                  <a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOTTId(specifier)"
+                  >{{getOTTId(specifier)}}</a>
+                  (<a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOTTId(specifier)"
+                  >ott</a>)
+                </template>
+              </td>
             </tr>
           </template>
         </template>
@@ -53,11 +67,11 @@
 
 <script>
 /*
- * A table for displaying information about loaded phyloreferences. Specifically,
- * this includes:
- *  - Phyloreference name
+ * A table for displaying information about phyloreferences. It displays the following information:
+ *  - Phyloref label
  *  - Clade definition
- *  - List of specifiers
+ *  - Specifier
+ *  - Open Tree Taxonomy ID
  */
 
 import { PhylorefWrapper } from '@phyloref/phyx';
@@ -67,7 +81,11 @@ export default {
   props: {
     phylorefs: {
       type: Array,
-      default: () => { return []; }
+      default: () => { return []; },
+    },
+    ottInfoBySpecifierLabel: {
+      type: Object,
+      default: () => { return {}; },
     },
   },
   methods: {
@@ -83,6 +101,16 @@ export default {
 
       // If there are '\n's in the text, replace them with <br />.
       return description.replace(/\n+/g, "<br />");
+    },
+
+    getOTTId(specifier) {
+      // Returns the Open Tree Taxonomy ID for a particular specifier.
+      const matches = this.ottInfoBySpecifierLabel[
+        PhylorefWrapper.getSpecifierLabel(specifier)
+      ];
+      if(matches && matches.length > 0) {
+        return matches[0]['taxon']['ott_id'];
+      }
     },
 
     getSpecifierType(phyloref, specifier) {
