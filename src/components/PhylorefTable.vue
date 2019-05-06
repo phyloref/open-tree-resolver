@@ -3,6 +3,7 @@
     <thead>
       <th width="15%">Name</th>
       <th width="40%">Description</th>
+      <th>Resolved Open Tree node</th>
       <th>Specifiers</th>
       <th>Open Tree Taxonomy ID</th>
     </thead>
@@ -11,7 +12,7 @@
         v-if="phylorefs.length === 0"
         class="bg-white"
       >
-        <td colspan="4">
+        <td colspan="5">
           <center><em>No phyloreferences loaded</em></center>
         </td>
       </tr>
@@ -24,6 +25,7 @@
             <td>
               <span v-html="getPhylorefDescription(phyloref)"></span>
             </td>
+            <td>&nbsp;</td>
             <td>
               <center><em>No specifiers provided.</em></center>
             </td>
@@ -39,6 +41,9 @@
                 </td>
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   <span v-html="getPhylorefDescription(phyloref)"></span>
+                </td>
+                <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
+                  <a target="_blank" :href="getURLForOTNode(phyloref)">{{getLabelForOTNode(phyloref)}}</a>
                 </td>
               </template>
               <td>
@@ -74,6 +79,7 @@
  *  - Open Tree Taxonomy ID
  */
 
+import { has } from 'lodash';
 import { PhylorefWrapper } from '@phyloref/phyx';
 
 export default {
@@ -87,8 +93,64 @@ export default {
       type: Object,
       default: () => { return {}; },
     },
+    reasoningResults: {
+      type: Object,
+      default: () => { return {}; },
+    },
+    nodesByID: {
+      type: Object,
+      default: () => { return {}; },
+    },
   },
   methods: {
+
+    /*
+     * Methods for accessing Open Tree resolved nodes
+     */
+
+    getURLForOTNode(phyloref) {
+      // Return the URL for the Open Tree resolved node for a particular phyloreference.
+
+      const phylorefId = phyloref['@id'];
+      if(phylorefId && has(this.reasoningResults, phylorefId)) {
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        const label = this.getNodeLabel(node);
+        if(!label) return undefined;
+
+        const match = /^.*[_\s](.*?ott.*)$/.exec(label);
+        if(match == null) {
+            const matchMRCA = /^mrca.*$/.exec(label);
+            if(matchMRCA == null) return undefined;
+            return "https://tree.opentreeoflife.org/opentree/@" + matchMRCA[0];
+        }
+        return "https://tree.opentreeoflife.org/opentree/@" + match[1];
+      }
+      return undefined;
+    },
+
+    getLabelForOTNode(phyloref) {
+      // Return the label for the Open Tree resolved node for a particular phyloreference.
+
+      const phylorefId = phyloref['@id'];
+      if(phylorefId && has(this.reasoningResults, phylorefId) && this.reasoningResults[phylorefId].length > 0) {
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        return this.getNodeLabel(node);
+      }
+      return undefined;
+    },
+
+    getNodeLabel(node) {
+      // Return the label for a particular node.
+
+      const labels = node.labels || [];
+      if(labels.length == 0) return undefined;
+      return labels[0]; // Ignore other labels.
+    },
+
     /*
      * Phyloref and specifier getters (should be moved into phyx.js)
      */

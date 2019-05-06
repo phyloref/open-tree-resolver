@@ -39,7 +39,7 @@ Vue.component('ResizeObserver', ResizeObserver);
 export default {
   name: 'Phylotree',
   props: {
-    // Properties
+    /* Parameters */
     newick: { // The Newick string of the phylogeny to display.
       type: String,
       default: '()',
@@ -56,7 +56,7 @@ export default {
       type: String,
     },
 
-    // Configuration
+    /* Configuration options */
     displayInternalNodes: { // Flag for whether to display internal node labels
       type: Boolean,
       default: false,
@@ -112,10 +112,10 @@ export default {
           // Make sure we don't already have an internal label node on this SVG node!
           let textLabel = element.selectAll('text');
 
-          if (has(data, 'name') && data.name !== '' && data.children) {
+          if (this.displayInternalNodes && has(data, 'name') && data.name !== '' && data.children) {
             // If the node has a label and has children (i.e. is an internal node),
             // we display it next to the node by creating a new 'text' element.
-            if (this.displayInternalNodes && textLabel.empty()) {
+            if (textLabel.empty()) {
               textLabel = element.append('text');
 
               // Place internal label to the left of the root node.

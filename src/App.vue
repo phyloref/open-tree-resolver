@@ -10,6 +10,8 @@
           <PhylorefTable
             :phylorefs="phylorefs"
             :ottInfoBySpecifierLabel="ottInfoBySpecifierLabel"
+            :reasoningResults="reasoningResults"
+            :nodesByID="nodesByID"
           />
         </div>
         <div class="card-footer">
@@ -38,7 +40,7 @@
             </div>
           </div>
           <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
-            <button class="btn btn-danger" type="button" @click="phylorefs = []">
+            <button class="btn btn-danger" type="button" @click="phylorefs = []; reasoningResults = {};">
               Clear phylorefs
             </button>
           </div>
@@ -97,7 +99,19 @@
         <div class="card-body">
           <Phylotree
             :newick="newick"
+            :baseURIForPhylogeny="ONTOLOGY_BASEURI + 'phylogeny'"
           />
+        </div>
+        <div class="card-footer">
+          <div class="btn-group" role="group" area-label="Reason over phylogeny">
+            <button
+              class="btn btn-primary"
+              href="javascript:;"
+              @click="reasonOverPhylogeny()"
+            >
+              Reason over phylogeny <span v-if="reasoningInProgress"><em>(in progress)</em></span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -115,9 +129,9 @@
  *  - downloading the induced subtree for the set of all OTT ids
  */
 
-import { has, isEqual, chunk, uniq } from 'lodash';
+import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
 import jQuery from 'jquery';
-import { PhylorefWrapper } from '@phyloref/phyx';
+import { PhylorefWrapper, SpecimenWrapper, ScientificNameWrapper, PhylogenyWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 
 // Navigation controls.
@@ -142,10 +156,29 @@ export default {
     // Open Tree Resolver version
     OPEN_TREE_RESOLVER_VERSION: "0.1.0",
 
-    // Currently loaded phyloreferences
+    // Currently loaded phyloreferences.
     phylorefs: [],
+
+    // The Newick string for the current phylogeny.
     newick: "()",
+
+    // Dictionary of Open Tree Taxonomy data by scientific name.
     ottInfoByName: {},
+
+    // Dictionary of nodes by their '@id'.
+    nodesByID: {},
+
+    // Reasoning results from JPhyloRef.
+    reasoningResults: {},
+
+    // Is reasoning currently in progress?
+    reasoningInProgress: false,
+
+    // URL to Phyx context JSON.
+    PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
+
+    // URL to be used as the produced ontology's base URI.
+    ONTOLOGY_BASEURI: "http://example.org/phyloref_open_tree_resolver#",
   }},
   computed: {
     allSpecifiers() {
@@ -292,8 +325,8 @@ export default {
       // Creates queries to the Open Tree Taxonomy for the provided names.
       // This will return asynchonously; you need to call getOTTId(name)
       // to retrieve the results.
-      // Options can be anything from https://github.com/OToL/germinator/wiki/TNRS-API-v3#match_names, including:
-      //  - context_name:
+      // Options can be anything from https://github.com/OpenTreeOfLife/germinator/wiki/TNRS-API-v3#match_names, including:
+      //  - context_name
       //  - do_approximate_matching
 
       let setOTTInfoByNames = (results) => {
@@ -335,6 +368,184 @@ export default {
           },
         })
           .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
+      });
+    },
+
+    /*
+     * Reasoning over phylogenies
+     */
+
+    convertTUtoRestriction(tunit) {
+      // Return an OWL restriction for a taxonomic unit or specifier.
+      // This code is taken from phyx2ontology.js [1], but once it has been moved into
+      // phyx.js [2], we can delete it here and call it directly in the library.
+      // - [1] https://github.com/phyloref/clade-ontology/blob/02bb88cff1e2cbe28a7214b90b8055a5fc9fd903/phyx2ontology/model2.js#L25-L79
+      // - [2] https://github.com/phyloref/phyx.js/issues/4
+
+      // If we're called with a specifier, use the first TU in that specifier (for now).
+      if (has(tunit, 'referencesTaxonomicUnits')) {
+        return this.convertTUtoRestriction(tunit.referencesTaxonomicUnits[0] || {});
+      }
+      // Build up a series of taxonomic units from scientific names and specimens.
+      const results = [];
+      if (has(tunit, 'scientificNames')) {
+        tunit.scientificNames.forEach((sciname) => {
+          const wrappedSciname = new ScientificNameWrapper(sciname);
+          results.push({
+            '@type': 'owl:Restriction',
+            onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
+            someValuesFrom: {
+              '@type': 'owl:Class',
+              intersectionOf: [
+                {
+                  // TODO: replace with a check once we close https://github.com/phyloref/phyx.js/issues/5.
+                  // For now, we pretend that all names are ICZN names.
+                  '@id': 'obo:NOMEN_0000107',
+                },
+                {
+                  '@type': 'owl:Restriction',
+                  onProperty: 'dwc:scientificName',
+                  // TODO: We really want the "canonical name" here: binomial or
+                  // trinomial, but without any additional authority information.
+                  // See https://github.com/phyloref/phyx.js/issues/8
+                  hasValue: wrappedSciname.binomialName,
+                },
+              ],
+            },
+          });
+        });
+      } else if (has(tunit, 'includesSpecimens')) {
+        // This is a quick-and-dirty implementation. Discussion about it should be
+        // carried out in https://github.com/phyloref/clade-ontology/issues/61
+        tunit.includesSpecimens.forEach((specimen) => {
+          const wrappedSpecimen = new SpecimenWrapper(specimen);
+          results.push({
+            '@type': 'owl:Restriction',
+            onProperty: 'dwc:organismID',
+            hasValue: wrappedSpecimen.occurrenceID,
+          });
+        });
+      } else {
+        // Ignore it for now (but warn the user).
+        console.log(`WARNING: taxonomic unit could not be converted into restriction: ${JSON.stringify(tunit)}\n`);
+        results.push({});
+      }
+      return results;
+    },
+
+    getPhylorefsAndPhylogenyAsOntology() {
+      // Returns a JSON-LD ontology that can includes the current phylorefs and
+      // phylogeny.
+      // Note that we only support JSON-LD files as input -- we don't craft
+      // clade definitions if they haven't already been created in
+      // phyloref.equivalentClass.
+
+      // Add the phyloreferences.
+      const phylorefsWithEquivalentClass = this.phylorefs.filter(
+        phyloref => has(phyloref, 'equivalentClass')
+      );
+
+      phylorefsWithEquivalentClass.forEach(phyloref => {
+        if(has(phyloref, 'label')) {
+          if(!has(phyloref, '@id')) {
+            phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
+          }
+        }
+      });
+
+      // Add the phylogeny.
+      const phylogenyNodes = new PhylogenyWrapper({
+        newick: this.newick,
+      }).getNodesAsJSONLD(this.ONTOLOGY_BASEURI + 'phylogeny');
+
+      // Track nodes by ID so we can look them up by @id later.
+      this.nodesByID = {};
+
+      // Modify nodes to support Model 2.0 taxonomic units.
+      phylogenyNodes.forEach(nodeAsParam => {
+        const node = nodeAsParam;
+        // Set a JSON-LD context.
+        node['@context'] = this.PHYX_CONTEXT_JSON;
+
+        // Make sure this node has a '@type'.
+        if (!has(node, '@type')) node['@type'] = [];
+        if (!Array.isArray(node['@type'])) node['@type'] = [node['@type']];
+        // We replace "parent" with "obo:CDAO_0000179" so we get has_Parent
+        // relationships in our output ontology.
+        // To be fixed in https://github.com/phyloref/phyx.js/issues/10
+        if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
+
+        // Does this node have taxonomic units? If so, convert them into class expressions.
+        if (has(node, 'representsTaxonomicUnits')) {
+          node.representsTaxonomicUnits.forEach((tunit) => {
+            this.convertTUtoRestriction(tunit).forEach((restriction) => {
+              node['@type'].push({
+                '@type': 'owl:Restriction',
+                onProperty: 'obo:CDAO_0000187',
+                someValuesFrom: restriction,
+              });
+            });
+          });
+        }
+        // Now, rdfpipe can handle '@type's that contain restrictions,
+        // but OWLAPI can't. So let's translate all '@type's into
+        // 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'.
+        node['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] = node['@type']
+          .map(c => isString(c) ? { '@id': c } : c);
+        delete node['@type'];
+        this.nodesByID[node['@id']] = node;
+      });
+      // Finally, add a header for this ontology.
+      let ontologyHeader = [
+        {
+          '@context': this.PHYX_CONTEXT_JSON,
+          '@id': this.ONTOLOGY_BASEURI,
+          '@type': 'owl:Ontology',
+          'owl:imports': [
+            'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
+            'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
+            'http://ontology.phyloref.org/2018-12-14/tcan.owl',
+          ],
+        },
+      ];
+      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
+    },
+
+    reasonOverPhylogeny() {
+      // Send JSON-LD to server for reasoning. Reasoning results will be stored in
+      // this.reasoningResults.
+
+      // Are we already reasoning? If so, ignore.
+      if (this.reasoningInProgress) return;
+      // Disable "Reason" buttons so they can't be reused.
+      this.reasoningInProgress = true;
+      this.reasoningResults = {};
+
+      jQuery.post('http://localhost:34214/reason', {
+        // This will convert the JSON-LD file into an application/x-www-form-urlencoded
+        // string (see https://api.jquery.com/jquery.ajax/#jQuery-ajax-settings under
+        // processData for details). The POST data sent to the server will look like:
+        //  jsonld=%7B%5B%7B%22title%22%3A...
+        // which translates to:
+        //  jsonld={[{"title":...
+        jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
+      }).done((data) => {
+        this.reasoningResults = data.phylorefs;
+        // console.log('Data retrieved: ', data);
+      }).fail((jqXHR, textStatus, errorThrown) => {
+        // We can try using the third argument, but it appears to be the
+        // HTTP status (e.g. 'Internal Server Error'). So we default to that,
+        // but look for a better one in the JSON response from the server, if
+        // available.
+        let error = errorThrown;
+        if (has(jqXHR, 'responseJSON') && has(jqXHR.responseJSON, 'error')) {
+          error = jqXHR.responseJSON.error;
+        }
+        if (error === undefined || error === '') error = 'unknown error';
+        alert(`Error occurred on server while reasoning: ${error}`);
+      }).always(() => {
+        // Reset "Reasoning" buttons to their usual state.
+        this.reasoningInProgress = false;
       });
     },
 
