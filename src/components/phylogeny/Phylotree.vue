@@ -111,7 +111,7 @@ export default {
           // Make sure we don't already have an internal label node on this SVG node!
           let textLabel = element.selectAll('text');
 
-          if (has(data, 'name') && data.name !== '' && data.children) {
+          if (this.displayInternalNodes && has(data, 'name') && data.name !== '' && data.children) {
             // If the node has a label and has children (i.e. is an internal node),
             // we display it next to the node by creating a new 'text' element.
             if (textLabel.empty()) {
