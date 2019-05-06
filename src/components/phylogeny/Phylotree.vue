@@ -39,6 +39,7 @@ Vue.component('ResizeObserver', ResizeObserver);
 export default {
   name: 'Phylotree',
   props: {
+    /* Parameters */
     newick: { // The Newick string of the phylogeny to display.
       type: String,
       default: '()',
