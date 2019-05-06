@@ -43,7 +43,7 @@
                   <span v-html="getPhylorefDescription(phyloref)"></span>
                 </td>
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
-                  <a target="_blank" :href="getURLForOpenTreeResolvedNode(phyloref)">{{getLabelForOpenTreeResolvedNode(phyloref)}}</a>
+                  <a target="_blank" :href="getURLForOTNode(phyloref)">{{getLabelForOTNode(phyloref)}}</a>
                 </td>
               </template>
               <td>
@@ -108,7 +108,7 @@ export default {
      * Methods for accessing Open Tree resolved nodes
      */
 
-    getURLForOpenTreeResolvedNode(phyloref) {
+    getURLForOTNode(phyloref) {
       // Return the URL for the Open Tree resolved node for a particular phyloreference.
 
       const phylorefId = phyloref['@id'];
@@ -130,7 +130,7 @@ export default {
       return undefined;
     },
 
-    getLabelForOpenTreeResolvedNode(phyloref) {
+    getLabelForOTNode(phyloref) {
       // Return the label for the Open Tree resolved node for a particular phyloreference.
 
       const phylorefId = phyloref['@id'];
