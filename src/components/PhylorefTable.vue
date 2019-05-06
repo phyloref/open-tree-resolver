@@ -46,14 +46,14 @@
                 <span v-html="getLabelForSpecifierAsHTML(specifier)"></span>
               </td>
               <td>
-                <template v-if="getOpenTreeTaxonomyID(specifier)">
+                <template v-if="getOTTId(specifier)">
                   <a
                     target="_blank"
-                    :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOpenTreeTaxonomyID(specifier)"
-                  >{{getOpenTreeTaxonomyID(specifier)}}</a>
+                    :href="'https://tree.opentreeoflife.org/opentree/@ott' + getOTTId(specifier)"
+                  >{{getOTTId(specifier)}}</a>
                   (<a
                     target="_blank"
-                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOpenTreeTaxonomyID(specifier)"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOTTId(specifier)"
                   >ott</a>)
                 </template>
               </td>
@@ -83,7 +83,7 @@ export default {
       type: Array,
       default: () => { return []; },
     },
-    openTreeTaxonomyInfoBySpecifierLabel: {
+    ottInfoBySpecifierLabel: {
       type: Object,
       default: () => { return {}; },
     },
@@ -103,9 +103,9 @@ export default {
       return description.replace(/\n+/g, "<br />");
     },
 
-    getOpenTreeTaxonomyID(specifier) {
+    getOTTId(specifier) {
       // Returns the Open Tree Taxonomy ID for a particular specifier.
-      const matches = this.openTreeTaxonomyInfoBySpecifierLabel[
+      const matches = this.ottInfoBySpecifierLabel[
         PhylorefWrapper.getSpecifierLabel(specifier)
       ];
       if(matches && matches.length > 0) {
