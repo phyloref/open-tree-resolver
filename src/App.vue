@@ -175,7 +175,7 @@ export default {
     reasoningInProgress: false,
 
     // URL to Phyx context JSON.
-    PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
+    PHYX_CONTEXT_JSON: "file:///home/vaidyagi/code/phyloref/phyx.js/docs/context/v0.2.0/phyx.json",
 
     // URL to be used as the produced ontology's base URI.
     ONTOLOGY_BASEURI: "http://example.org/phyloref_open_tree_resolver#",
