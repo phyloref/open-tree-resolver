@@ -398,11 +398,9 @@ export default {
       );
 
       phylorefsWithEquivalentClass.forEach(phyloref => {
-        if(has(phyloref, 'label')) {
-          if(!has(phyloref, '@id')) {
-            phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
-          }
-        }
+        // Note that multiple files might have overlapping '@id's.
+        // To avoid confusion, we re-@id all the phylorefs.
+        phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
 
         // Every entity in the JSON-LD needs a '@context', so here is the one for this phyloref.
         if(!has(phyloref, '@context')) {
