@@ -80,7 +80,7 @@
  */
 
 import { has } from 'lodash';
-import { PhylorefWrapper } from '@phyloref/phyx';
+import { TaxonomicUnitWrapper } from '@phyloref/phyx';
 
 export default {
   name: 'PhylorefTable',
@@ -168,7 +168,7 @@ export default {
     getOTTId(specifier) {
       // Returns the Open Tree Taxonomy ID for a particular specifier.
       const matches = this.ottInfoBySpecifierLabel[
-        PhylorefWrapper.getSpecifierLabel(specifier)
+        new TaxonomicUnitWrapper(specifier).label
       ];
       if(matches && matches.length > 0) {
         return matches[0]['taxon']['ott_id'];
@@ -194,7 +194,7 @@ export default {
     getLabelForSpecifierAsHTML(specifier) {
       // Return a string describing this specifier with HTML elements to format
       // particular elements, such as italicizing the scientific name.
-      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      const label = new TaxonomicUnitWrapper(specifier).label;
       if(label.startsWith("Specimen")) return label;
 
       return label.replace(/^\w+ [a-z-]+/, "<em>$&</em>");

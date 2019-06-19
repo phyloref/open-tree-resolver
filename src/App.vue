@@ -131,7 +131,7 @@
 
 import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
 import jQuery from 'jquery';
-import { PhylorefWrapper, SpecimenWrapper, ScientificNameWrapper, PhylogenyWrapper } from '@phyloref/phyx';
+import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 
 // Navigation controls.
@@ -196,7 +196,7 @@ export default {
       // Convert ottInfoByName into matches by specifier label.
       const ottInfoBySpecifierLabel = {};
       this.allSpecifiers.forEach(specifier => {
-        const specifierLabel = PhylorefWrapper.getSpecifierLabel(specifier);
+        const specifierLabel = new TaxonomicUnitWrapper(specifier).label;
         if(!specifierLabel) return;
 
         const sciname = this.getScinameForSpecifier(specifier);
@@ -242,7 +242,7 @@ export default {
       // We currently extract this from the specifier label, although once we fix
       // https://github.com/phyloref/phyx.js/issues/7, we should have a better
       // scientific name object to use here.
-      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      const label = new TaxonomicUnitWrapper(specifier).label;
       if(label.startsWith("Specimen")) return undefined;
       const matches = label.match(/^\w+ [a-z-]+/);
       if(matches) return matches[0];
@@ -382,55 +382,7 @@ export default {
       // - [1] https://github.com/phyloref/clade-ontology/blob/02bb88cff1e2cbe28a7214b90b8055a5fc9fd903/phyx2ontology/model2.js#L25-L79
       // - [2] https://github.com/phyloref/phyx.js/issues/4
 
-      // If we're called with a specifier, use the first TU in that specifier (for now).
-      if (has(tunit, 'referencesTaxonomicUnits')) {
-        return this.convertTUtoRestriction(tunit.referencesTaxonomicUnits[0] || {});
-      }
-      // Build up a series of taxonomic units from scientific names and specimens.
-      const results = [];
-      if (has(tunit, 'scientificNames')) {
-        tunit.scientificNames.forEach((sciname) => {
-          const wrappedSciname = new ScientificNameWrapper(sciname);
-          results.push({
-            '@type': 'owl:Restriction',
-            onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
-            someValuesFrom: {
-              '@type': 'owl:Class',
-              intersectionOf: [
-                {
-                  // TODO: replace with a check once we close https://github.com/phyloref/phyx.js/issues/5.
-                  // For now, we pretend that all names are ICZN names.
-                  '@id': 'obo:NOMEN_0000107',
-                },
-                {
-                  '@type': 'owl:Restriction',
-                  onProperty: 'dwc:scientificName',
-                  // TODO: We really want the "canonical name" here: binomial or
-                  // trinomial, but without any additional authority information.
-                  // See https://github.com/phyloref/phyx.js/issues/8
-                  hasValue: wrappedSciname.binomialName,
-                },
-              ],
-            },
-          });
-        });
-      } else if (has(tunit, 'includesSpecimens')) {
-        // This is a quick-and-dirty implementation. Discussion about it should be
-        // carried out in https://github.com/phyloref/clade-ontology/issues/61
-        tunit.includesSpecimens.forEach((specimen) => {
-          const wrappedSpecimen = new SpecimenWrapper(specimen);
-          results.push({
-            '@type': 'owl:Restriction',
-            onProperty: 'dwc:organismID',
-            hasValue: wrappedSpecimen.occurrenceID,
-          });
-        });
-      } else {
-        // Ignore it for now (but warn the user).
-        console.log(`WARNING: taxonomic unit could not be converted into restriction: ${JSON.stringify(tunit)}\n`);
-        results.push({});
-      }
-      return results;
+      return [new TaxonomicUnitWrapper(tunit).asJSONLD];
     },
 
     getPhylorefsAndPhylogenyAsOntology() {
@@ -450,6 +402,11 @@ export default {
           if(!has(phyloref, '@id')) {
             phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
           }
+        }
+
+        // Every entity in the JSON-LD needs a '@context', so here is the one for this phyloref.
+        if(!has(phyloref, '@context')) {
+          phyloref['@context'] = this.PHYX_CONTEXT_JSON;
         }
       });
 
@@ -473,7 +430,7 @@ export default {
         // We replace "parent" with "obo:CDAO_0000179" so we get has_Parent
         // relationships in our output ontology.
         // To be fixed in https://github.com/phyloref/phyx.js/issues/10
-        if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
+        // if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
 
         // Does this node have taxonomic units? If so, convert them into class expressions.
         if (has(node, 'representsTaxonomicUnits')) {
@@ -508,6 +465,7 @@ export default {
           ],
         },
       ];
+
       return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
     },
 
