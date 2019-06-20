@@ -60,6 +60,9 @@
                     target="_blank"
                     :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOTTId(specifier)"
                   >ott</a>)
+                  <span v-if="unknownOttIdReasons['ott' + getOTTId(specifier)]">
+                    <br>Not in synthetic tree: {{unknownOttIdReasons['ott' + getOTTId(specifier)]}}
+                  </span>
                 </template>
               </td>
             </tr>
@@ -98,6 +101,10 @@ export default {
       default: () => { return {}; },
     },
     nodesByID: {
+      type: Object,
+      default: () => { return {}; },
+    },
+    unknownOttIdReasons: {
       type: Object,
       default: () => { return {}; },
     },
