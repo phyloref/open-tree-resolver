@@ -12,6 +12,7 @@
             :ottInfoBySpecifierLabel="ottInfoBySpecifierLabel"
             :reasoningResults="reasoningResults"
             :nodesByID="nodesByID"
+            :unknownOttIdReasons="unknownOttIdReasons"
           />
         </div>
         <div class="card-footer">
@@ -74,6 +75,23 @@
                 />
               </div>
             </div>
+            <div class="form-group row" v-if="unknownOttIds.length > 0">
+              <label
+                for="newick"
+                class="col-md-2 control-label"
+              >
+                Taxa with Open Tree IDs but not on the synthetic tree
+              </label>
+              <div class="col-md-10 input-group">
+                <template v-for="(ottId, index) of unknownOttIds">
+                  <a
+                    target="_blank"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + ottId.substring(3)"
+                  >{{ottId}}</a>
+                  <span v-if="index+1 < unknownOttIds.length" class="pr-1">,</span>
+                </template>
+              </div>
+            </div>
           </form>
         </div>
         <div class="card-footer">
@@ -129,7 +147,7 @@
  *  - downloading the induced subtree for the set of all OTT ids
  */
 
-import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
+import { has, isEqual, chunk, uniq, uniqueId, isString, keys } from 'lodash';
 import jQuery from 'jquery';
 import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
@@ -173,6 +191,10 @@ export default {
 
     // Is reasoning currently in progress?
     reasoningInProgress: false,
+
+    // List of unknown OTT Ids, if any.
+    unknownOttIds: [],
+    unknownOttIdReasons: {},
 
     // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "file:///home/vaidyagi/code/phyloref/phyx.js/docs/context/v0.2.0/phyx.json",
@@ -266,6 +288,10 @@ export default {
 
       if(ottIds.length === 0) return;
 
+      // Reset the unknown OTT Ids.
+      this.unknownOttIds = [];
+      this.unknownOttIdReasons = {};
+
       // Query the induced subtree, i.e. a tree showing the relationships between all
       // these OTT ids.
       jQuery.ajax({
@@ -285,11 +311,13 @@ export default {
           // will return a list of nodes that could not be matched. We can remove
           // these OTT ids from our list of queries and trying again.
           if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
-            const unknownOttIds = x.responseJSON.unknown;
-            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIds);
+            const unknownOttIdReasons = x.responseJSON.unknown;
+            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIdReasons);
+            this.unknownOttIdReasons = unknownOttIdReasons;
+            this.unknownOttIds = keys(unknownOttIdReasons);
 
             // Remove the unknown OTT ids from the list of OTT ids to be queried.
-            const knownOttIds = ottIds.filter(id => !has(unknownOttIds, "ott" + id));
+            const knownOttIds = ottIds.filter(id => !has(unknownOttIdReasons, "ott" + id));
             console.log("Query has been reduced to the following nodes: ", knownOttIds);
 
             // Redo query without unknown OTT Ids.
