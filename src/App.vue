@@ -212,6 +212,7 @@ export default {
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
+      /*
       {
         url: 'examples/fisher_et_al_2007.jsonld',
         title: 'Fisher et al, 2007',
@@ -219,7 +220,7 @@ export default {
       {
         url: 'examples/hillis_and_wilcox_2005.jsonld',
         title: 'Hillis and Wilcox, 2005',
-      },
+      },*/
       {
         url: 'examples/brochu_2003.jsonld',
         title: 'Brochu 2003',
