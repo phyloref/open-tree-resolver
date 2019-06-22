@@ -22,7 +22,7 @@
               href="javascript:;"
               onclick="$('#load-jsonld').trigger('click')"
             >
-              Add phyloreferences from JSON-LD file
+              Import from ontology in JSON-LD
             </button>
             <input
               id="load-jsonld"
