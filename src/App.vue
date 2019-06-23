@@ -129,6 +129,14 @@
             >
               Reason over phylogeny <span v-if="reasoningInProgress"><em>(in progress)</em></span>
             </button>
+
+            <button
+              class="btn btn-secondary"
+              href="javascript:;"
+              @click="downloadAsJSONLD()"
+            >
+              Download as ontology
+            </button>
           </div>
         </div>
       </div>
@@ -152,6 +160,7 @@ import jQuery from 'jquery';
 import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { signer } from 'x-hub-signature';
+import { saveAs } from 'filesaver.js-npm';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
@@ -503,6 +512,15 @@ export default {
       ];
 
       return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
+    }
+
+    downloadAsJSONLD() {
+      // Download a copy of the current ontology (to be reasoned over) as JSON-LD.
+      const content = [this.getPhylorefsAndPhylogenyAsOntology()];
+
+      // Save to local hard drive.
+      const jsonldFile = new File(content, 'download.jsonld', { type: 'application/json;charset=utf-8' });
+      saveAs(jsonldFile);
     },
 
     reasonOverPhylogeny() {
