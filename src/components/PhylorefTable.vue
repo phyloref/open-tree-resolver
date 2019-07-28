@@ -202,6 +202,7 @@ export default {
       // Return a string describing this specifier with HTML elements to format
       // particular elements, such as italicizing the scientific name.
       const label = new TaxonomicUnitWrapper(specifier).label;
+      if(!label) return "(could not read)";
       if(label.startsWith("Specimen")) return label;
 
       return label.replace(/^\w+ [a-z-]+/, "<em>$&</em>");
