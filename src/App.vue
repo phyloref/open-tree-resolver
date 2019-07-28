@@ -533,46 +533,51 @@ export default {
       this.reasoningInProgress = true;
       this.reasoningResults = {};
 
-      // Prepare request for submission.
-      const query = jQuery.param({
-        jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
-      }).replace(/%20/g, '+');  // $.post will do this automatically,
-                                // but we need to do this here so our
-                                // signature works.
+      // Make sure that the Reason button is updated before we convert the Phyx
+      // file into JSON-LD.
+      const outerThis = this;
+      Vue.nextTick(function () {
+        // Prepare request for submission.
+        const query = jQuery.param({
+          jsonld: outerThis.getPhylorefsAndPhylogenyAsOntology(),
+        }).replace(/%20/g, '+');  // $.post will do this automatically,
+                                  // but we need to do this here so our
+                                  // signature works.
 
-      // Sign it with an X-Hub-Signature.
-      const sign = signer({
-          algorithm: 'sha1',
-          secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
-      });
-      const signature = sign(new Buffer(query));
+        // Sign it with an X-Hub-Signature.
+        const sign = signer({
+            algorithm: 'sha1',
+            secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
+        });
+        const signature = sign(new Buffer(query));
 
-      console.log('Query: ', query);
-      console.log('Signature: ', signature);
+        console.log('Query: ', query);
+        console.log('Signature: ', signature);
 
-      jQuery.post({
-        url: this.$config.JPHYLOREF_SUBMISSION_URL,
-        data: query,
-        headers: {
-          'X-Hub-Signature': signature,
-        },
-      }).done((data) => {
-        this.reasoningResults = data.phylorefs;
-        // console.log('Data retrieved: ', data);
-      }).fail((jqXHR, textStatus, errorThrown) => {
-        // We can try using the third argument, but it appears to be the
-        // HTTP status (e.g. 'Internal Server Error'). So we default to that,
-        // but look for a better one in the JSON response from the server, if
-        // available.
-        let error = errorThrown;
-        if (has(jqXHR, 'responseJSON') && has(jqXHR.responseJSON, 'error')) {
-          error = jqXHR.responseJSON.error;
-        }
-        if (error === undefined || error === '') error = 'unknown error';
-        alert(`Error occurred on server while reasoning: ${error}`);
-      }).always(() => {
-        // Reset "Reasoning" buttons to their usual state.
-        this.reasoningInProgress = false;
+        jQuery.post({
+          url: outerThis.$config.JPHYLOREF_SUBMISSION_URL,
+          data: query,
+          headers: {
+            'X-Hub-Signature': signature,
+          },
+        }).done((data) => {
+          outerThis.reasoningResults = data.phylorefs;
+          // console.log('Data retrieved: ', data);
+        }).fail((jqXHR, textStatus, errorThrown) => {
+          // We can try using the third argument, but it appears to be the
+          // HTTP status (e.g. 'Internal Server Error'). So we default to that,
+          // but look for a better one in the JSON response from the server, if
+          // available.
+          let error = errorThrown;
+          if (has(jqXHR, 'responseJSON') && has(jqXHR.responseJSON, 'error')) {
+            error = jqXHR.responseJSON.error;
+          }
+          if (error === undefined || error === '') error = 'unknown error';
+          alert(`Error occurred on server while reasoning: ${error}`);
+        }).always(() => {
+          // Reset "Reasoning" buttons to their usual state.
+          outerThis.reasoningInProgress = false;
+        });
       });
     },
 
