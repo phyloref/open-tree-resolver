@@ -133,6 +133,7 @@ import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
 import jQuery from 'jquery';
 import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
+import { signer } from 'x-hub-signature';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
@@ -479,14 +480,29 @@ export default {
       this.reasoningInProgress = true;
       this.reasoningResults = {};
 
-      jQuery.post('http://localhost:34214/reason', {
-        // This will convert the JSON-LD file into an application/x-www-form-urlencoded
-        // string (see https://api.jquery.com/jquery.ajax/#jQuery-ajax-settings under
-        // processData for details). The POST data sent to the server will look like:
-        //  jsonld=%7B%5B%7B%22title%22%3A...
-        // which translates to:
-        //  jsonld={[{"title":...
+      // Prepare request for submission.
+      const query = $.param({
         jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
+      }).replace(/%20/g, '+');  // $.post will do this automatically,
+                                // but we need to do this here so our
+                                // signature works.
+
+      // Sign it with an X-Hub-Signature.
+      const sign = signer({
+          algorithm: 'sha1',
+          secret: 'undefined' // A pre-arranged secret with the server.
+      });
+      const signature = sign(new Buffer(query));
+
+      console.log('Query: ', query);
+      console.log('Signature: ', signature);
+
+      jQuery.post({
+        url: 'https://phyloref.rc.ufl.edu/hooks/reason',
+        data: query,
+        headers: {
+          'X-Hub-Signature': signature,
+        },
       }).done((data) => {
         this.reasoningResults = data.phylorefs;
         // console.log('Data retrieved: ', data);
