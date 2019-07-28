@@ -511,8 +511,8 @@ export default {
         },
       ];
 
-      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
-    }
+      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), undefined, 4);
+    },
 
     downloadAsJSONLD() {
       // Download a copy of the current ontology (to be reasoned over) as JSON-LD.
