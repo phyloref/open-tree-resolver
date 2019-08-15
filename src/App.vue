@@ -482,7 +482,7 @@ export default {
       this.reasoningResults = {};
 
       // Prepare request for submission.
-      const query = $.param({
+      const query = jQuery.param({
         jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
       }).replace(/%20/g, '+');  // $.post will do this automatically,
                                 // but we need to do this here so our
