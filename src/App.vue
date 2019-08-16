@@ -86,9 +86,10 @@
                 <template v-for="(ottId, index) of unknownOttIds">
                   <a
                     target="_blank"
+                    :key="'unknownOttIds_a_' + ottId"
                     :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + ottId.substring(3)"
                   >{{ottId}}</a>
-                  <span v-if="index+1 < unknownOttIds.length" class="pr-1">,</span>
+                  <span :key="'unknownOttIds_span_' + ottId" v-if="index+1 < unknownOttIds.length" class="pr-1">,</span>
                 </template>
               </div>
             </div>
