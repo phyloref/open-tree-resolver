@@ -512,7 +512,11 @@ export default {
         },
       ];
 
-      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), undefined, 4);
+      return JSON.stringify(
+        ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes),
+        null,
+        4
+      );
     },
 
     downloadAsJSONLD() {
