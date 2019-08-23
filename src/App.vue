@@ -180,6 +180,27 @@ export default {
 
     // URL to be used as the produced ontology's base URI.
     ONTOLOGY_BASEURI: "http://example.org/phyloref_open_tree_resolver#",
+
+    // List of imports in the produced ontology.
+    OWL_IMPORTS: [
+      'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
+      'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
+      'http://ontology.phyloref.org/2018-12-14/tcan.owl',
+    ],
+
+    // OWL terms we need to refer to.
+    CDAO_REPRESENTS_TU: 'obo:CDAO_0000187',
+    OWL_RESTRICTION: 'owl:Restriction',
+    OWL_ONTOLOGY: 'owl:Ontology',
+
+    // URL to submit reasoning requests to.
+    JPHYLOREF_SUBMISSION_URL: 'https://phyloref.rc.ufl.edu/hooks/reason',
+
+    // URL to match names against the Open Tree TNRS.
+    OTT_API_TNRS_MATCH_NAMES: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+
+    // URL to submit OTT induced subtree requests to.
+    OTT_API_INDUCED_SUBTREE: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
   }},
   computed: {
     allSpecifiers() {
@@ -272,7 +293,7 @@ export default {
       // these OTT ids.
       jQuery.ajax({
         type: 'POST',
-        url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+        url: this.OTT_API_INDUCED_SUBTREE,
         data: JSON.stringify({
           ott_ids: ottIds,
         }),
@@ -297,7 +318,7 @@ export default {
             // Redo query without unknown OTT Ids.
             jQuery.ajax({
               type: 'POST',
-              url: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+              url: this.OTT_API_INDUCED_SUBTREE,
               data: JSON.stringify({
                 ott_ids: knownOttIds,
               }),
@@ -361,7 +382,7 @@ export default {
         // Step 2. Spawn queries to OTT asking for the names.
         jQuery.ajax({
           type: 'POST',
-          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          url: this.OTT_API_TNRS_MATCH_NAMES,
           data,
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
@@ -439,8 +460,8 @@ export default {
           node.representsTaxonomicUnits.forEach((tunit) => {
             this.convertTUtoRestriction(tunit).forEach((restriction) => {
               node['@type'].push({
-                '@type': 'owl:Restriction',
-                onProperty: 'obo:CDAO_0000187',
+                '@type': this.OWL_RESTRICTION,
+                onProperty: this.CDAO_REPRESENTS_TU,
                 someValuesFrom: restriction,
               });
             });
@@ -459,12 +480,8 @@ export default {
         {
           '@context': this.PHYX_CONTEXT_JSON,
           '@id': this.ONTOLOGY_BASEURI,
-          '@type': 'owl:Ontology',
-          'owl:imports': [
-            'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
-            'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
-            'http://ontology.phyloref.org/2018-12-14/tcan.owl',
-          ],
+          '@type': this.OWL_ONTOLOGY,
+          'owl:imports': this.OWL_IMPORTS,
         },
       ];
 
@@ -499,7 +516,7 @@ export default {
       console.log('Signature: ', signature);
 
       jQuery.post({
-        url: 'https://phyloref.rc.ufl.edu/hooks/reason',
+        url: this.JPHYLOREF_SUBMISSION_URL,
         data: query,
         headers: {
           'X-Hub-Signature': signature,
