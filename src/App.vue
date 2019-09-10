@@ -192,15 +192,6 @@ export default {
     CDAO_REPRESENTS_TU: 'obo:CDAO_0000187',
     OWL_RESTRICTION: 'owl:Restriction',
     OWL_ONTOLOGY: 'owl:Ontology',
-
-    // URL to submit reasoning requests to.
-    JPHYLOREF_SUBMISSION_URL: 'https://phyloref.rc.ufl.edu/hooks/reason',
-
-    // URL to match names against the Open Tree TNRS.
-    OTT_API_TNRS_MATCH_NAMES: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
-
-    // URL to submit OTT induced subtree requests to.
-    OTT_API_INDUCED_SUBTREE: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
   }},
   computed: {
     allSpecifiers() {
@@ -293,7 +284,7 @@ export default {
       // these OTT ids.
       jQuery.ajax({
         type: 'POST',
-        url: this.OTT_API_INDUCED_SUBTREE,
+        url: this.$config.OTT_API_INDUCED_SUBTREE,
         data: JSON.stringify({
           ott_ids: ottIds,
         }),
@@ -318,7 +309,7 @@ export default {
             // Redo query without unknown OTT Ids.
             jQuery.ajax({
               type: 'POST',
-              url: this.OTT_API_INDUCED_SUBTREE,
+              url: this.$config.OTT_API_INDUCED_SUBTREE,
               data: JSON.stringify({
                 ott_ids: knownOttIds,
               }),
@@ -382,7 +373,7 @@ export default {
         // Step 2. Spawn queries to OTT asking for the names.
         jQuery.ajax({
           type: 'POST',
-          url: this.OTT_API_TNRS_MATCH_NAMES,
+          url: this.$config.OTT_API_TNRS_MATCH_NAMES,
           data,
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
@@ -516,7 +507,7 @@ export default {
       console.log('Signature: ', signature);
 
       jQuery.post({
-        url: this.JPHYLOREF_SUBMISSION_URL,
+        url: this.$config.JPHYLOREF_SUBMISSION_URL,
         data: query,
         headers: {
           'X-Hub-Signature': signature,
