@@ -499,7 +499,7 @@ export default {
       // Sign it with an X-Hub-Signature.
       const sign = signer({
           algorithm: 'sha1',
-          secret: 'undefined' // A pre-arranged secret with the server.
+          secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
       });
       const signature = sign(new Buffer(query));
 
