@@ -60,6 +60,9 @@
                     target="_blank"
                     :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + getOTTId(specifier)"
                   >ott</a>)
+                  <span v-if="unknownOttIdReasons['ott' + getOTTId(specifier)]">
+                    <br>Not in synthetic tree: {{unknownOttIdReasons['ott' + getOTTId(specifier)]}}
+                  </span>
                 </template>
               </td>
             </tr>
@@ -98,6 +101,10 @@ export default {
       default: () => { return {}; },
     },
     nodesByID: {
+      type: Object,
+      default: () => { return {}; },
+    },
+    unknownOttIdReasons: {
       type: Object,
       default: () => { return {}; },
     },
@@ -195,6 +202,7 @@ export default {
       // Return a string describing this specifier with HTML elements to format
       // particular elements, such as italicizing the scientific name.
       const label = new TaxonomicUnitWrapper(specifier).label;
+      if(!label) return "(could not read)";
       if(label.startsWith("Specimen")) return label;
 
       return label.replace(/^\w+ [a-z-]+/, "<em>$&</em>");

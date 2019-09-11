@@ -12,6 +12,7 @@
             :ottInfoBySpecifierLabel="ottInfoBySpecifierLabel"
             :reasoningResults="reasoningResults"
             :nodesByID="nodesByID"
+            :unknownOttIdReasons="unknownOttIdReasons"
           />
         </div>
         <div class="card-footer">
@@ -21,7 +22,7 @@
               href="javascript:;"
               onclick="$('#load-jsonld').trigger('click')"
             >
-              Add phyloreferences from JSON-LD file
+              Import from ontology in JSON-LD
             </button>
             <input
               id="load-jsonld"
@@ -74,6 +75,24 @@
                 />
               </div>
             </div>
+            <div class="form-group row" v-if="unknownOttIds.length > 0">
+              <label
+                for="newick"
+                class="col-md-2 control-label"
+              >
+                Taxa with Open Tree IDs but not on the synthetic tree
+              </label>
+              <div class="col-md-10 input-group">
+                <template v-for="(ottId, index) of unknownOttIds">
+                  <a
+                    target="_blank"
+                    :key="'unknownOttIds_a_' + ottId"
+                    :href="'https://tree.opentreeoflife.org/taxonomy/browse?id=' + ottId.substring(3)"
+                  >{{ottId}}</a>
+                  <span :key="'unknownOttIds_span_' + ottId" v-if="index+1 < unknownOttIds.length" class="pr-1">,</span>
+                </template>
+              </div>
+            </div>
           </form>
         </div>
         <div class="card-footer">
@@ -111,6 +130,14 @@
             >
               Reason over phylogeny <span v-if="reasoningInProgress"><em>(in progress)</em></span>
             </button>
+
+            <button
+              class="btn btn-secondary"
+              href="javascript:;"
+              @click="downloadAsJSONLD()"
+            >
+              Download as ontology
+            </button>
           </div>
         </div>
       </div>
@@ -129,11 +156,12 @@
  *  - downloading the induced subtree for the set of all OTT ids
  */
 
-import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
+import { has, isEqual, chunk, uniq, uniqueId, isString, keys } from 'lodash';
 import jQuery from 'jquery';
 import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { signer } from 'x-hub-signature';
+import { saveAs } from 'filesaver.js-npm';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
@@ -174,6 +202,10 @@ export default {
 
     // Is reasoning currently in progress?
     reasoningInProgress: false,
+
+    // List of unknown OTT Ids, if any.
+    unknownOttIds: [],
+    unknownOttIdReasons: {},
 
     // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.2.0/phyx.json",
@@ -280,6 +312,10 @@ export default {
 
       if(ottIds.length === 0) return;
 
+      // Reset the unknown OTT Ids.
+      this.unknownOttIds = [];
+      this.unknownOttIdReasons = {};
+
       // Query the induced subtree, i.e. a tree showing the relationships between all
       // these OTT ids.
       jQuery.ajax({
@@ -299,11 +335,13 @@ export default {
           // will return a list of nodes that could not be matched. We can remove
           // these OTT ids from our list of queries and trying again.
           if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
-            const unknownOttIds = x.responseJSON.unknown;
-            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIds);
+            const unknownOttIdReasons = x.responseJSON.unknown;
+            console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIdReasons);
+            this.unknownOttIdReasons = unknownOttIdReasons;
+            this.unknownOttIds = keys(unknownOttIdReasons);
 
             // Remove the unknown OTT ids from the list of OTT ids to be queried.
-            const knownOttIds = ottIds.filter(id => !has(unknownOttIds, "ott" + id));
+            const knownOttIds = ottIds.filter(id => !has(unknownOttIdReasons, "ott" + id));
             console.log("Query has been reduced to the following nodes: ", knownOttIds);
 
             // Redo query without unknown OTT Ids.
@@ -412,11 +450,9 @@ export default {
       );
 
       phylorefsWithEquivalentClass.forEach(phyloref => {
-        if(has(phyloref, 'label')) {
-          if(!has(phyloref, '@id')) {
-            phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
-          }
-        }
+        // Note that multiple files might have overlapping '@id's.
+        // To avoid confusion, we re-@id all the phylorefs.
+        phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
 
         // Every entity in the JSON-LD needs a '@context', so here is the one for this phyloref.
         if(!has(phyloref, '@context')) {
@@ -476,7 +512,20 @@ export default {
         },
       ];
 
-      return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
+      return JSON.stringify(
+        ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes),
+        null,
+        4
+      );
+    },
+
+    downloadAsJSONLD() {
+      // Download a copy of the current ontology (to be reasoned over) as JSON-LD.
+      const content = [this.getPhylorefsAndPhylogenyAsOntology()];
+
+      // Save to local hard drive.
+      const jsonldFile = new File(content, 'download.jsonld', { type: 'application/json;charset=utf-8' });
+      saveAs(jsonldFile);
     },
 
     reasonOverPhylogeny() {
@@ -489,46 +538,51 @@ export default {
       this.reasoningInProgress = true;
       this.reasoningResults = {};
 
-      // Prepare request for submission.
-      const query = jQuery.param({
-        jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
-      }).replace(/%20/g, '+');  // $.post will do this automatically,
-                                // but we need to do this here so our
-                                // signature works.
+      // Make sure that the Reason button is updated before we convert the Phyx
+      // file into JSON-LD.
+      const outerThis = this;
+      Vue.nextTick(function () {
+        // Prepare request for submission.
+        const query = jQuery.param({
+          jsonld: outerThis.getPhylorefsAndPhylogenyAsOntology(),
+        }).replace(/%20/g, '+');  // $.post will do this automatically,
+                                  // but we need to do this here so our
+                                  // signature works.
 
-      // Sign it with an X-Hub-Signature.
-      const sign = signer({
-          algorithm: 'sha1',
-          secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
-      });
-      const signature = sign(new Buffer(query));
+        // Sign it with an X-Hub-Signature.
+        const sign = signer({
+            algorithm: 'sha1',
+            secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
+        });
+        const signature = sign(new Buffer(query));
 
-      console.log('Query: ', query);
-      console.log('Signature: ', signature);
+        console.log('Query: ', query);
+        console.log('Signature: ', signature);
 
-      jQuery.post({
-        url: this.$config.JPHYLOREF_SUBMISSION_URL,
-        data: query,
-        headers: {
-          'X-Hub-Signature': signature,
-        },
-      }).done((data) => {
-        this.reasoningResults = data.phylorefs;
-        // console.log('Data retrieved: ', data);
-      }).fail((jqXHR, textStatus, errorThrown) => {
-        // We can try using the third argument, but it appears to be the
-        // HTTP status (e.g. 'Internal Server Error'). So we default to that,
-        // but look for a better one in the JSON response from the server, if
-        // available.
-        let error = errorThrown;
-        if (has(jqXHR, 'responseJSON') && has(jqXHR.responseJSON, 'error')) {
-          error = jqXHR.responseJSON.error;
-        }
-        if (error === undefined || error === '') error = 'unknown error';
-        alert(`Error occurred on server while reasoning: ${error}`);
-      }).always(() => {
-        // Reset "Reasoning" buttons to their usual state.
-        this.reasoningInProgress = false;
+        jQuery.post({
+          url: outerThis.$config.JPHYLOREF_SUBMISSION_URL,
+          data: query,
+          headers: {
+            'X-Hub-Signature': signature,
+          },
+        }).done((data) => {
+          outerThis.reasoningResults = data.phylorefs;
+          // console.log('Data retrieved: ', data);
+        }).fail((jqXHR, textStatus, errorThrown) => {
+          // We can try using the third argument, but it appears to be the
+          // HTTP status (e.g. 'Internal Server Error'). So we default to that,
+          // but look for a better one in the JSON response from the server, if
+          // available.
+          let error = errorThrown;
+          if (has(jqXHR, 'responseJSON') && has(jqXHR.responseJSON, 'error')) {
+            error = jqXHR.responseJSON.error;
+          }
+          if (error === undefined || error === '') error = 'unknown error';
+          alert(`Error occurred on server while reasoning: ${error}`);
+        }).always(() => {
+          // Reset "Reasoning" buttons to their usual state.
+          outerThis.reasoningInProgress = false;
+        });
       });
     },
 
