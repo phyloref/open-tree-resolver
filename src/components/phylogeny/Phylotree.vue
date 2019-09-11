@@ -128,9 +128,9 @@ export default {
 
           if (data.name !== undefined && data.children === undefined) {
             // Labeled leaf node! Look for taxonomic units.
-            const tunits = TaxonomicUnitWrapper.getTaxonomicUnitsFromNodeLabel(data.name);
+            const tunit = TaxonomicUnitWrapper.fromLabel(data.name);
 
-            if (tunits.length === 0) {
+            if (!tunit) {
               element.classed('terminal-node-without-tunits', true);
             }
           }

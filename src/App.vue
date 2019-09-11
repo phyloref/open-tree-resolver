@@ -131,8 +131,9 @@
 
 import { has, isEqual, chunk, uniq, uniqueId, isString } from 'lodash';
 import jQuery from 'jquery';
-import { PhylorefWrapper, SpecimenWrapper, ScientificNameWrapper, PhylogenyWrapper } from '@phyloref/phyx';
+import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
+import { signer } from 'x-hub-signature';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
@@ -175,10 +176,22 @@ export default {
     reasoningInProgress: false,
 
     // URL to Phyx context JSON.
-    PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.1.0/phyx.json",
+    PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.2.0/phyx.json",
 
     // URL to be used as the produced ontology's base URI.
     ONTOLOGY_BASEURI: "http://example.org/phyloref_open_tree_resolver#",
+
+    // List of imports in the produced ontology.
+    OWL_IMPORTS: [
+      'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
+      'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
+      'http://ontology.phyloref.org/2018-12-14/tcan.owl',
+    ],
+
+    // OWL terms we need to refer to.
+    CDAO_REPRESENTS_TU: 'obo:CDAO_0000187',
+    OWL_RESTRICTION: 'owl:Restriction',
+    OWL_ONTOLOGY: 'owl:Ontology',
   }},
   computed: {
     allSpecifiers() {
@@ -196,7 +209,7 @@ export default {
       // Convert ottInfoByName into matches by specifier label.
       const ottInfoBySpecifierLabel = {};
       this.allSpecifiers.forEach(specifier => {
-        const specifierLabel = PhylorefWrapper.getSpecifierLabel(specifier);
+        const specifierLabel = new TaxonomicUnitWrapper(specifier).label;
         if(!specifierLabel) return;
 
         const sciname = this.getScinameForSpecifier(specifier);
@@ -211,6 +224,7 @@ export default {
     },
     exampleJSONLDURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
+      /*
       {
         url: 'examples/fisher_et_al_2007.jsonld',
         title: 'Fisher et al, 2007',
@@ -218,7 +232,7 @@ export default {
       {
         url: 'examples/hillis_and_wilcox_2005.jsonld',
         title: 'Hillis and Wilcox, 2005',
-      },
+      },*/
       {
         url: 'examples/brochu_2003.jsonld',
         title: 'Brochu 2003',
@@ -242,7 +256,7 @@ export default {
       // We currently extract this from the specifier label, although once we fix
       // https://github.com/phyloref/phyx.js/issues/7, we should have a better
       // scientific name object to use here.
-      const label = PhylorefWrapper.getSpecifierLabel(specifier);
+      const label = new TaxonomicUnitWrapper(specifier).label;
       if(label.startsWith("Specimen")) return undefined;
       const matches = label.match(/^\w+ [a-z-]+/);
       if(matches) return matches[0];
@@ -270,7 +284,7 @@ export default {
       // these OTT ids.
       jQuery.ajax({
         type: 'POST',
-        url: 'https://ot39.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+        url: this.$config.OTT_API_INDUCED_SUBTREE,
         data: JSON.stringify({
           ott_ids: ottIds,
         }),
@@ -295,7 +309,7 @@ export default {
             // Redo query without unknown OTT Ids.
             jQuery.ajax({
               type: 'POST',
-              url: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+              url: this.$config.OTT_API_INDUCED_SUBTREE,
               data: JSON.stringify({
                 ott_ids: knownOttIds,
               }),
@@ -359,7 +373,7 @@ export default {
         // Step 2. Spawn queries to OTT asking for the names.
         jQuery.ajax({
           type: 'POST',
-          url: 'https://api.opentreeoflife.org/v3/tnrs/match_names',
+          url: this.$config.OTT_API_TNRS_MATCH_NAMES,
           data,
           contentType: 'application/json; charset=utf-8',
           dataType: 'json',
@@ -382,55 +396,7 @@ export default {
       // - [1] https://github.com/phyloref/clade-ontology/blob/02bb88cff1e2cbe28a7214b90b8055a5fc9fd903/phyx2ontology/model2.js#L25-L79
       // - [2] https://github.com/phyloref/phyx.js/issues/4
 
-      // If we're called with a specifier, use the first TU in that specifier (for now).
-      if (has(tunit, 'referencesTaxonomicUnits')) {
-        return this.convertTUtoRestriction(tunit.referencesTaxonomicUnits[0] || {});
-      }
-      // Build up a series of taxonomic units from scientific names and specimens.
-      const results = [];
-      if (has(tunit, 'scientificNames')) {
-        tunit.scientificNames.forEach((sciname) => {
-          const wrappedSciname = new ScientificNameWrapper(sciname);
-          results.push({
-            '@type': 'owl:Restriction',
-            onProperty: 'http://rs.tdwg.org/ontology/voc/TaxonConcept#hasName',
-            someValuesFrom: {
-              '@type': 'owl:Class',
-              intersectionOf: [
-                {
-                  // TODO: replace with a check once we close https://github.com/phyloref/phyx.js/issues/5.
-                  // For now, we pretend that all names are ICZN names.
-                  '@id': 'obo:NOMEN_0000107',
-                },
-                {
-                  '@type': 'owl:Restriction',
-                  onProperty: 'dwc:scientificName',
-                  // TODO: We really want the "canonical name" here: binomial or
-                  // trinomial, but without any additional authority information.
-                  // See https://github.com/phyloref/phyx.js/issues/8
-                  hasValue: wrappedSciname.binomialName,
-                },
-              ],
-            },
-          });
-        });
-      } else if (has(tunit, 'includesSpecimens')) {
-        // This is a quick-and-dirty implementation. Discussion about it should be
-        // carried out in https://github.com/phyloref/clade-ontology/issues/61
-        tunit.includesSpecimens.forEach((specimen) => {
-          const wrappedSpecimen = new SpecimenWrapper(specimen);
-          results.push({
-            '@type': 'owl:Restriction',
-            onProperty: 'dwc:organismID',
-            hasValue: wrappedSpecimen.occurrenceID,
-          });
-        });
-      } else {
-        // Ignore it for now (but warn the user).
-        console.log(`WARNING: taxonomic unit could not be converted into restriction: ${JSON.stringify(tunit)}\n`);
-        results.push({});
-      }
-      return results;
+      return [new TaxonomicUnitWrapper(tunit).asJSONLD];
     },
 
     getPhylorefsAndPhylogenyAsOntology() {
@@ -450,6 +416,11 @@ export default {
           if(!has(phyloref, '@id')) {
             phyloref['@id'] = this.ONTOLOGY_BASEURI + 'phyloref_' + uniqueId();
           }
+        }
+
+        // Every entity in the JSON-LD needs a '@context', so here is the one for this phyloref.
+        if(!has(phyloref, '@context')) {
+          phyloref['@context'] = this.PHYX_CONTEXT_JSON;
         }
       });
 
@@ -473,15 +444,15 @@ export default {
         // We replace "parent" with "obo:CDAO_0000179" so we get has_Parent
         // relationships in our output ontology.
         // To be fixed in https://github.com/phyloref/phyx.js/issues/10
-        if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
+        // if (has(node, 'parent')) node['obo:CDAO_0000179'] = { '@id': node.parent };
 
         // Does this node have taxonomic units? If so, convert them into class expressions.
         if (has(node, 'representsTaxonomicUnits')) {
           node.representsTaxonomicUnits.forEach((tunit) => {
             this.convertTUtoRestriction(tunit).forEach((restriction) => {
               node['@type'].push({
-                '@type': 'owl:Restriction',
-                onProperty: 'obo:CDAO_0000187',
+                '@type': this.OWL_RESTRICTION,
+                onProperty: this.CDAO_REPRESENTS_TU,
                 someValuesFrom: restriction,
               });
             });
@@ -500,14 +471,11 @@ export default {
         {
           '@context': this.PHYX_CONTEXT_JSON,
           '@id': this.ONTOLOGY_BASEURI,
-          '@type': 'owl:Ontology',
-          'owl:imports': [
-            'http://raw.githubusercontent.com/phyloref/curation-workflow/develop/ontologies/phyloref_testcase.owl',
-            'http://ontology.phyloref.org/2018-12-14/phyloref.owl',
-            'http://ontology.phyloref.org/2018-12-14/tcan.owl',
-          ],
+          '@type': this.OWL_ONTOLOGY,
+          'owl:imports': this.OWL_IMPORTS,
         },
       ];
+
       return JSON.stringify(ontologyHeader.concat(phylorefsWithEquivalentClass).concat(phylogenyNodes), null, 4);
     },
 
@@ -521,14 +489,29 @@ export default {
       this.reasoningInProgress = true;
       this.reasoningResults = {};
 
-      jQuery.post('http://localhost:34214/reason', {
-        // This will convert the JSON-LD file into an application/x-www-form-urlencoded
-        // string (see https://api.jquery.com/jquery.ajax/#jQuery-ajax-settings under
-        // processData for details). The POST data sent to the server will look like:
-        //  jsonld=%7B%5B%7B%22title%22%3A...
-        // which translates to:
-        //  jsonld={[{"title":...
+      // Prepare request for submission.
+      const query = jQuery.param({
         jsonld: this.getPhylorefsAndPhylogenyAsOntology(),
+      }).replace(/%20/g, '+');  // $.post will do this automatically,
+                                // but we need to do this here so our
+                                // signature works.
+
+      // Sign it with an X-Hub-Signature.
+      const sign = signer({
+          algorithm: 'sha1',
+          secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
+      });
+      const signature = sign(new Buffer(query));
+
+      console.log('Query: ', query);
+      console.log('Signature: ', signature);
+
+      jQuery.post({
+        url: this.$config.JPHYLOREF_SUBMISSION_URL,
+        data: query,
+        headers: {
+          'X-Hub-Signature': signature,
+        },
       }).done((data) => {
         this.reasoningResults = data.phylorefs;
         // console.log('Data retrieved: ', data);
