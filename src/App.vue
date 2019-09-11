@@ -552,7 +552,7 @@ export default {
         // Sign it with an X-Hub-Signature.
         const sign = signer({
             algorithm: 'sha1',
-            secret: this.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
+            secret: outerThis.$config.JPHYLOREF_X_HUB_SIGNATURE_SECRET,
         });
         const signature = sign(new Buffer(query));
 
