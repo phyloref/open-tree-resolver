@@ -162,6 +162,7 @@ import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { signer } from 'x-hub-signature';
 import { saveAs } from 'filesaver.js-npm';
+import zlib from 'zlib';
 
 // Navigation controls.
 import TopNavigationBar from './components/TopNavigationBar.vue';
@@ -544,7 +545,7 @@ export default {
       Vue.nextTick(function () {
         // Prepare request for submission.
         const query = jQuery.param({
-          jsonld: outerThis.getPhylorefsAndPhylogenyAsOntology(),
+          jsonldGzipped: Buffer.from(zlib.gzipSync(outerThis.getPhylorefsAndPhylogenyAsOntology())).toString('base64')
         }).replace(/%20/g, '+');  // $.post will do this automatically,
                                   // but we need to do this here so our
                                   // signature works.
