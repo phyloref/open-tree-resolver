@@ -543,9 +543,14 @@ export default {
       // file into JSON-LD.
       const outerThis = this;
       Vue.nextTick(function () {
+        // Convert phylorefs and phylogeny to JSON-LD.
+        const jsonld = outerThis.getPhylorefsAndPhylogenyAsOntology();
+        const jsonldGzipped = zlib.gzipSync(jsonld);
+
         // Prepare request for submission.
         const query = jQuery.param({
-          jsonldGzipped: Buffer.from(zlib.gzipSync(outerThis.getPhylorefsAndPhylogenyAsOntology())).toString('base64')
+          // Convert Gzipped data into a string in Base64.
+          jsonldGzipped: Buffer.from(jsonldGzipped).toString('base64')
         }).replace(/%20/g, '+');  // $.post will do this automatically,
                                   // but we need to do this here so our
                                   // signature works.
