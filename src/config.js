@@ -1,6 +1,6 @@
 module.exports = {
   // URL to submit reasoning requests to.
-  JPHYLOREF_SUBMISSION_URL: 'https://phyloref.rc.ufl.edu/hooks/reason',
+  JPHYLOREF_SUBMISSION_URL: 'http://reasoner.phyloref.org/reason',
 
   // X-Hub-Signature secret used to communicate with JPhyloRef.
   JPHYLOREF_X_HUB_SIGNATURE_SECRET: 'undefined',
