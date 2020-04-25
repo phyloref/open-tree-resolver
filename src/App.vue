@@ -335,7 +335,8 @@ export default {
           // If some OTT ids were not found on the synthetic tree, the OTT API
           // will return a list of nodes that could not be matched. We can remove
           // these OTT ids from our list of queries and trying again.
-          if(x.responseJSON.message === "[/v3/tree_of_life/induced_subtree] Error: Nodes not found!") {
+          const regexErrorMessage = /^\[\/v3\/tree_of_life\/induced_subtree\] Error: node_id '\w+' was not found!/;
+          if(regexErrorMessage.test(x.responseJSON.message)) {
             const unknownOttIdReasons = x.responseJSON.unknown;
             console.log("The Open Tree synthetic tree does not contain the following nodes: ", unknownOttIdReasons);
             this.unknownOttIdReasons = unknownOttIdReasons;
