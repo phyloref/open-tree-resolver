@@ -6,7 +6,7 @@
         class="navbar-brand"
         href="index.html"
       >
-        Open Tree Resolver v{{ version }}
+        Open Tree Resolver <small>{{ version }}</small>
       </a>
       <div class="collapse navbar-collapse">
         <ul class="navbar-nav">
@@ -61,7 +61,7 @@ export default {
   props: {
     version: {
       type: String,
-      default: 'UNKNOWN',
+      default: 'unversioned',
     },
   },
 };
