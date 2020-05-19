@@ -11,9 +11,9 @@ name: Deploy to GitHub Pages
 #   - Deploy that code to the gh-pages branch using an SSH deploy
 #     key. This key is stored as an encrypted secret in the repository.
 
-on:
-  release:
-    types: [published]
+on: push
+    #  release:
+    # types: [published]
 
 # Based on https://github.com/marketplace/actions/deploy-to-github-pages#using-an-ssh-deploy-key-
 jobs:  
