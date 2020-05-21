@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <TopNavigationBar :version="OPEN_TREE_RESOLVER_VERSION" />
+    <TopNavigationBar :version="version" />
     <div id="wrapper">
       <div class="card border-dark">
         <h5 class="card-header border-dark">
@@ -184,7 +184,7 @@ export default {
   },
   data: function() { return {
     // Open Tree Resolver version
-    OPEN_TREE_RESOLVER_VERSION: "0.1.0",
+    version: process.env.VUE_APP_VERSION,
 
     // Currently loaded phyloreferences.
     phylorefs: [],
