@@ -186,18 +186,36 @@
                   <thead>
                     <th>Node ID</th>
                     <th>Name</th>
+                    <th>GBIF Species ID</th>
+                    <th>GBIF occurrence count</th>
                   </thead>
                   <tbody>
                     <tr v-for="(nodeId, nodeIndex) in selectedPhyloref.species">
                       <td>{{nodeId}}</td>
                       <td>{{speciesByNodeId[nodeId].name}}</td>
+                      <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
+                        <template v-for="speciesId in gbifBySpeciesName[speciesByNodeId[nodeId].name].speciesKey">
+                          <a target="_blank" :href="'http://gbif.org/species/' + speciesId">{{speciesId}}</a>
+                        </template>
+                      </td>
+                      <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">{{gbifBySpeciesName[speciesByNodeId[nodeId].name].count}}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
-
           </form>
+        </div>
+        <div class="card-footer" v-if="getNodeIdForPhyloref(selectedPhyloref)">
+          <div class="btn-group" role="group" area-label="Query biodiversity databases">
+            <button
+              class="btn btn-primary"
+              href="javascript:;"
+              @click="downloadFromGBIF(selectedPhyloref)"
+            >
+              Query information from GBIF
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -274,6 +292,9 @@ export default {
     // Structure:
     //  speciesByNodeId[nodeId] = [ { "nodeId": "12345", "name": "Homo sapiens", "rank": "species", ... } ]
     speciesByNodeId: {},
+
+    // Contains information on GBIF by species name.
+    gbifBySpeciesName: {},
 
     // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.2.0/phyx.json",
@@ -392,6 +413,7 @@ export default {
 
       // Reset caches.
       this.speciesByNodeId = {};
+      this.gbifBySpeciesName = {};
 
       // Reset the unknown OTT Ids.
       this.unknownOttIds = [];
@@ -853,6 +875,28 @@ export default {
       });
 
       return [];
+    },
+
+    /* Code for querying GBIF */
+    downloadFromGBIF(phyloref) {
+      if (!phyloref.species) return;
+      const speciesNames = phyloref.species.map(nodeId => this.speciesByNodeId[nodeId].name);
+      speciesNames.forEach(speciesName => {
+        console.log("Querying GBIF for species name: ", speciesName);
+        jQuery.get({
+          url: this.$config.GBIF_API_OCCURRENCE,
+          data: {
+            scientificName: speciesName,
+            rank: 'SPECIES'
+          },
+        }).done((data) => {
+          console.log('Data retrieved: ', data);
+          this.gbifBySpeciesName[speciesName] = {
+            count: data.count,
+            speciesKey: Array.from(new Set(data.results.map(result => result.speciesKey))),
+          };
+        });
+      });
     },
 
     /* Code for running the demo */

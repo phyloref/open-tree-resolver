@@ -13,4 +13,7 @@ module.exports = {
 
   // URL to submit OTT induced subtree requests to.
   OTT_API_INDUCED_SUBTREE: 'https://api.opentreeoflife.org/v3/tree_of_life/induced_subtree',
+
+  // URL to query GBIF for occurrence information.
+  GBIF_API_OCCURRENCE: 'https://api.gbif.org/v1/occurrence/search',
 };
