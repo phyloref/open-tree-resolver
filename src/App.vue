@@ -141,6 +141,65 @@
           </div>
         </div>
       </div>
+
+      <!-- Display all the species for a particular clade. -->
+      <div
+        class="card border-dark mt-2"
+      >
+        <h5 class="card-header">
+          Species in clade
+        </h5>
+        <div class="card-body">
+          <form>
+            <div class="form-group row">
+              <label
+                for="clade-select"
+                class="col-md-3 control-label"
+              >
+                Select a resolved clade from the table above:
+              </label>
+              <div class="col-md-9 input-group">
+                <select id="clade-select">
+                  <option @click="selectedPhyloref = undefined">Clear</option>
+                  <template v-for="(phyloref, phylorefIndex) of phylorefs">
+                    <option @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}</option>
+                  </template>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group row" v-if="getNodeIdForPhyloref(selectedPhyloref)" >
+              <div class="col-md-3 control-label">
+                Resolved to:
+              </div>
+              <div class="col-md-9 input-group">
+                <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@' + getNodeIdForPhyloref(selectedPhyloref)">{{getNodeIdForPhyloref(selectedPhyloref)}}</a>
+              </div>
+            </div>
+
+            <div class="form-group row" v-if="getNodeIdForPhyloref(selectedPhyloref)">
+              <div class="col-md-3 control-label">
+                Included species:
+              </div>
+              <div class="col-md-9 input-group">
+                <table border="1">
+                  <thead>
+                    <th>Node ID</th>
+                    <th>Name</th>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(nodeId, nodeIndex) in selectedPhyloref.species">
+                      <td>{{nodeId}}</td>
+                      <td>{{speciesByNodeId[nodeId].name}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </form>
+        </div>
+      </div>
     </div>
 
     <!-- All modals are included here -->
@@ -207,6 +266,14 @@ export default {
     // List of unknown OTT Ids, if any.
     unknownOttIds: [],
     unknownOttIdReasons: {},
+
+    // Currently selected phyloref.
+    selectedPhyloref: undefined,
+
+    // Contains information on the species inside a node ID.
+    // Structure:
+    //  speciesByNodeId[nodeId] = [ { "nodeId": "12345", "name": "Homo sapiens", "rank": "species", ... } ]
+    speciesByNodeId: {},
 
     // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.2.0/phyx.json",
@@ -322,6 +389,9 @@ export default {
       // Given a set of OTT ids, download the induced subtree from the Open Tree API.
 
       if(ottIds.length === 0) return;
+
+      // Reset caches.
+      this.speciesByNodeId = {};
 
       // Reset the unknown OTT Ids.
       this.unknownOttIds = [];
@@ -713,6 +783,79 @@ export default {
           addPhyloref(jsonld);
       }
     },
+
+    /* Retrieving lists of species from Open Tree of Life */
+
+    getNodeIdForPhyloref(phyloref) {
+      // Return the URL for the Open Tree resolved node for a particular phyloreference.
+
+      if (!phyloref) return undefined;
+
+      const phylorefId = phyloref['@id'];
+      if(phylorefId && has(this.reasoningResults, phylorefId)) {
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        const label = this.getNodeLabel(node);
+        if(!label) return undefined;
+
+        const match = /^.*[_\s](.*?ott.*)$/.exec(label);
+        if(match == null) {
+            const matchMRCA = /^mrca.*$/.exec(label);
+            if(matchMRCA == null) return undefined;
+            return matchMRCA[0].toString();
+        }
+        return match[1].toString();
+      }
+      return undefined;
+    },
+
+    getNodeLabel(node) {
+      // Return the label for a particular node.
+      const labels = node.labels || [];
+      if(labels.length == 0) return undefined;
+      return labels[0]; // Ignore other labels.
+    },
+
+    downloadSpeciesForPhyloref(phyloref) {
+      const ottNodeId = this.getNodeIdForPhyloref(phyloref);
+      if (!ottNodeId) return;
+      if (has(this.speciesByNodeId, ottNodeId)) return;
+      if (has(phyloref, 'species')) return;
+      Vue.set(phyloref, 'species', []);
+
+      jQuery.post({
+        url: this.$config.OTT_API_SUBTREE,
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({
+          node_id: ottNodeId,
+          format: 'arguson',
+          height_limit: -1,
+        }),
+      }).done((data) => {
+        console.log('Data retrieved: ', data);
+
+        const recordTaxa = (node) => {
+            if (!node) return;
+            if (node.taxon && node.taxon.rank && node.taxon.rank == "species") {
+              // Record this species!
+              this.speciesByNodeId[node.node_id] = {
+                node_id: node.node_id,
+                ...node.taxon,
+              };
+              phyloref.species.push(node.node_id);
+              // console.log(`Setting ${node.node_id} to`, node.taxon);
+            }
+            if (node.children) node.children.forEach(recordTaxa);
+        };
+        recordTaxa(data.arguson);
+        console.log("Found species for phyloref: ", phyloref.species);
+      });
+
+      return [];
+    },
+
+    /* Code for running the demo */
 
     demo() {
       // This demo is designed to demonstrate all the functionality of
