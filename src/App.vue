@@ -162,7 +162,7 @@
                 <select id="clade-select">
                   <option @click="selectedPhyloref = undefined">Clear</option>
                   <template v-for="(phyloref, phylorefIndex) of phylorefs">
-                    <option @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}</option>
+                    <option @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span></option>
                   </template>
                 </select>
               </div>
@@ -195,7 +195,7 @@
                       <td>{{speciesByNodeId[nodeId].name}}</td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
                         <template v-for="speciesId in gbifBySpeciesName[speciesByNodeId[nodeId].name].speciesKey">
-                          <a target="_blank" :href="'http://gbif.org/species/' + speciesId">{{speciesId}}</a>
+                          <a target="_blank" :href="'http://gbif.org/species/' + speciesId">{{speciesId}}</a><br />
                         </template>
                       </td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">{{gbifBySpeciesName[speciesByNodeId[nodeId].name].count}}</td>
@@ -412,12 +412,12 @@ export default {
       if(ottIds.length === 0) return;
 
       // Reset caches.
-      this.speciesByNodeId = {};
-      this.gbifBySpeciesName = {};
+      Vue.set(this, 'speciesByNodeId', {});
+      Vue.set(this, 'gbifBySpeciesName', {});
 
       // Reset the unknown OTT Ids.
-      this.unknownOttIds = [];
-      this.unknownOttIdReasons = {};
+      Vue.set(this, 'unknownOttIds', []);
+      Vue.set(this, 'unknownOttIdReasons', {});
 
       // Query the induced subtree, i.e. a tree showing the relationships between all
       // these OTT ids.
@@ -891,10 +891,10 @@ export default {
           },
         }).done((data) => {
           console.log('Data retrieved: ', data);
-          this.gbifBySpeciesName[speciesName] = {
+          Vue.set(this.gbifBySpeciesName, speciesName, {
             count: data.count,
             speciesKey: Array.from(new Set(data.results.map(result => result.speciesKey))),
-          };
+          });
         });
       });
     },
