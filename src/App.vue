@@ -156,15 +156,15 @@
                 for="clade-select"
                 class="col-md-3 control-label"
               >
-                Select a resolved clade from the table above:
+                Select clade:
               </label>
               <div class="col-md-9 input-group">
-                <select id="clade-select">
-                  <option @click="selectedPhyloref = undefined">Clear</option>
+              <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                  <button type="button" class="btn btn-primary" @click="selectedPhyloref = undefined">Clear</button>
                   <template v-for="(phyloref, phylorefIndex) of phylorefs">
-                    <option @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span></option>
+                    <button type="button" class="btn btn-primary active" @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span></button>
                   </template>
-                </select>
+              </div>
               </div>
             </div>
 
@@ -822,13 +822,17 @@ export default {
         const label = this.getNodeLabel(node);
         if(!label) return undefined;
 
-        const match = /^.*[_\s](.*?ott.*)$/.exec(label);
-        if(match == null) {
-            const matchMRCA = /^mrca.*$/.exec(label);
-            if(matchMRCA == null) return undefined;
-            return matchMRCA[0].toString();
+        console.log("Finding node ID in label: ", label);
+
+        // TODO: ignore change; works the other way around too.
+        const matchMRCA = /^mrca.*$/.exec(label);
+        if(matchMRCA == null) {
+            const match = /^.*[_\s](.*?ott.*)$/.exec(label);
+            if (match == null) return undefined;
+            return match[1].toString();
         }
-        return match[1].toString();
+        console.log("Found MRCA: ", matchMRCA[0].toString());
+        return matchMRCA[0].toString();
       }
       return undefined;
     },
@@ -841,6 +845,7 @@ export default {
     },
 
     downloadSpeciesForPhyloref(phyloref) {
+        console.log("downloadSpeciesForPhyloref", phyloref);
       const ottNodeId = this.getNodeIdForPhyloref(phyloref);
       if (!ottNodeId) return;
       if (has(this.speciesByNodeId, ottNodeId)) return;
