@@ -3,6 +3,7 @@
 Based on the suggestion at https://keepachangelog.com/en/1.0.0/.
 
 ## [Unreleased]
+- Upgraded NPM packages with `npm upgrade`.
 - Improved display of version string in the top navigation panel
   and turned it into a link to the tag in Github.
 
