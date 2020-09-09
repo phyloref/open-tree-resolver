@@ -3,6 +3,8 @@
 Based on the suggestion at https://keepachangelog.com/en/1.0.0/.
 
 ## [Unreleased]
+- Improved display of version string in the top navigation panel
+  and turned it into a link to the tag in Github.
 
 ## [0.2.0] - 2020-05-19
 - Added support for gzipping the ontology before upload to the reasoner.
