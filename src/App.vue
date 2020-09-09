@@ -190,7 +190,7 @@
                     <th>GBIF occurrence count</th>
                   </thead>
                   <tbody>
-                    <tr v-for="(nodeId, nodeIndex) in selectedPhyloref.species">
+                    <tr v-for="nodeId in selectedPhyloref.species">
                       <td>{{nodeId}}</td>
                       <td>{{speciesByNodeId[nodeId].name}}</td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
