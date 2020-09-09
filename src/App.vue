@@ -161,9 +161,14 @@
               <div class="col-md-9 input-group">
               <div class="btn-group btn-group-toggle" data-toggle="buttons">
                   <button type="button" class="btn btn-primary" @click="selectedPhyloref = undefined">Clear</button>
-                  <template v-for="(phyloref, phylorefIndex) of phylorefs">
-                    <button type="button" class="btn btn-primary active" @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)">{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span></button>
-                  </template>
+                  <button
+                    :key="phyloref['@id'] || phyloref.label || ('phyloref_index_' + phylorefIndex)"
+                    v-for="(phyloref, phylorefIndex) of phylorefs"
+                    type="button"
+                    class="btn btn-primary active"
+                    @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)"
+                  >{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span>
+                </button>
               </div>
               </div>
             </div>
@@ -190,13 +195,16 @@
                     <th>GBIF occurrence count</th>
                   </thead>
                   <tbody>
-                    <tr v-for="nodeId in selectedPhyloref.species">
+                    <tr v-for="nodeId in selectedPhyloref.species" :key="(selectedPhyloref['@id'] || selectedPhyloref.label || '') + '_' + nodeId">
                       <td>{{nodeId}}</td>
                       <td>{{speciesByNodeId[nodeId].name}}</td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
-                        <template v-for="speciesId in gbifBySpeciesName[speciesByNodeId[nodeId].name].speciesKey">
-                          <a target="_blank" :href="'http://gbif.org/species/' + speciesId">{{speciesId}}</a><br />
-                        </template>
+                        <a
+                          v-for="speciesId in gbifBySpeciesName[speciesByNodeId[nodeId].name].speciesKey"
+                          :key="'species_id_' + speciesId"
+                          target="_blank"
+                          :href="'http://gbif.org/species/' + speciesId"
+                          >{{speciesId}}</a>
                       </td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">{{gbifBySpeciesName[speciesByNodeId[nodeId].name].count}}</td>
                     </tr>
