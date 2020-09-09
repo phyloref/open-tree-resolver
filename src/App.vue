@@ -274,8 +274,9 @@ export default {
   },
   mounted() {
     /**
-     * If provided with a special query (?demo), immediately activate the
-     * example file and start the demo.
+     * If provided with a special query (#demo), start a "demo" of the
+     * functionality of the Open Tree Resolver by loading an example
+     * file, looking it up on the Open Tree of Life, and starting reasoning.
      */
     if (window.location.hash == "#demo") {
       this.demo()
