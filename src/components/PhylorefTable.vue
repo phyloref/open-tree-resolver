@@ -4,6 +4,7 @@
       <th width="15%">Name</th>
       <th width="40%">Description</th>
       <th>Resolved Open Tree node</th>
+      <th>Species in clade</th>
       <th>Specifiers</th>
       <th>Open Tree Taxonomy ID</th>
     </thead>
@@ -26,6 +27,7 @@
               <span v-html="getPhylorefDescription(phyloref)"></span>
             </td>
             <td>&nbsp;</td>
+            <td>&nbsp;</td>
             <td>
               <center><em>No specifiers provided.</em></center>
             </td>
@@ -44,6 +46,9 @@
                 </td>
                 <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
                   <a target="_blank" :href="getURLForOTNode(phyloref)">{{getLabelForOTNode(phyloref)}}</a>
+                </td>
+                <td :rowspan="getSpecifiersForPhyloref(phyloref).length">
+                  <a v-if="phyloref.species" :href="'#species_in_' + phyloref.label">{{phyloref.species.length}} species</a>
                 </td>
               </template>
               <td>
@@ -105,6 +110,10 @@ export default {
       default: () => { return {}; },
     },
     unknownOttIdReasons: {
+      type: Object,
+      default: () => { return {}; },
+    },
+    speciesByNodeId: {
       type: Object,
       default: () => { return {}; },
     },

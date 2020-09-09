@@ -13,6 +13,7 @@
             :reasoningResults="reasoningResults"
             :nodesByID="nodesByID"
             :unknownOttIdReasons="unknownOttIdReasons"
+            :speciesByNodeId="speciesByNodeId"
           />
         </div>
         <div class="card-footer">
@@ -137,6 +138,14 @@
             <button
               class="btn btn-secondary"
               href="javascript:;"
+              @click="downloadSpeciesForAllPhylorefs()"
+            >
+              Download species for all phylorefs
+            </button>
+
+            <button
+              class="btn btn-info"
+              href="javascript:;"
               @click="downloadAsJSONLD()"
             >
               Download as ontology
@@ -147,35 +156,15 @@
 
       <!-- Display all the species for a particular clade. -->
       <div
+        v-for="(selectedPhyloref, phylorefIndex) of phylorefs"
+        :key="selectedPhyloref['@id'] || selectedPhyloref.label || ('phyloref_index_' + phylorefIndex)"
         class="card border-dark mt-2"
       >
-        <h5 class="card-header">
-          Species in clade
+        <h5 :id="'species_in_' + selectedPhyloref.label" class="card-header">
+          Species in clade in {{selectedPhyloref.label || 'unlabeled phyloref'}}
         </h5>
         <div class="card-body">
           <form>
-            <div class="form-group row">
-              <label
-                for="clade-select"
-                class="col-md-3 control-label"
-              >
-                Select clade:
-              </label>
-              <div class="col-md-9 input-group">
-              <div class="btn-group btn-group-toggle" data-toggle="buttons">
-                  <button type="button" class="btn btn-primary" @click="selectedPhyloref = undefined">Clear</button>
-                  <button
-                    v-for="(phyloref, phylorefIndex) of phylorefs"
-                    :key="phyloref['@id'] || phyloref.label || ('phyloref_index_' + phylorefIndex)"
-                    type="button"
-                    class="btn btn-primary active"
-                    @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)"
-                  >{{phyloref.label || `Phyloref ${phylorefIndex + 1}`}}<span v-if="!getNodeIdForPhyloref(phyloref)"> (not resolved)</span>
-                </button>
-              </div>
-              </div>
-            </div>
-
             <div class="form-group row" v-if="getNodeIdForPhyloref(selectedPhyloref)" >
               <div class="col-md-3 control-label">
                 Resolved to:
@@ -916,6 +905,17 @@ export default {
             speciesKey: Array.from(new Set(data.results.map(result => result.speciesKey))),
           });
         });
+      });
+    },
+
+    downloadSpeciesForAllPhylorefs() {
+      // Helper function for downloading species on all phyloreferences
+      // that have been resolved on the Open Tree of Life.
+      this.phylorefs.forEach(phyloref => {
+        const phylorefId = phyloref['@id'];
+        if(phylorefId && has(this.reasoningResults, phylorefId)) {
+          this.downloadSpeciesForPhyloref(phyloref);
+        }
       });
     },
 
