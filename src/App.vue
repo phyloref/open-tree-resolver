@@ -35,9 +35,12 @@
               Add phyloreferences from example
             </button>
             <div class="dropdown-menu" aria-labelledby="addFromExamples">
-              <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
-                {{example.title}}
-              </a>
+              <a
+                href="javascript:;"
+                class="dropdown-item"
+                v-for="example of exampleJSONLDURLs"
+                :key="example.url"
+                @click="loadJSONLDFromURL(example.url)">{{example.title}}</a>
             </div>
           </div>
           <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
@@ -162,8 +165,8 @@
               <div class="btn-group btn-group-toggle" data-toggle="buttons">
                   <button type="button" class="btn btn-primary" @click="selectedPhyloref = undefined">Clear</button>
                   <button
-                    :key="phyloref['@id'] || phyloref.label || ('phyloref_index_' + phylorefIndex)"
                     v-for="(phyloref, phylorefIndex) of phylorefs"
+                    :key="phyloref['@id'] || phyloref.label || ('phyloref_index_' + phylorefIndex)"
                     type="button"
                     class="btn btn-primary active"
                     @click="selectedPhyloref = phyloref; downloadSpeciesForPhyloref(phyloref)"
@@ -195,7 +198,10 @@
                     <th>GBIF occurrence count</th>
                   </thead>
                   <tbody>
-                    <tr v-for="nodeId in selectedPhyloref.species" :key="(selectedPhyloref['@id'] || selectedPhyloref.label || '') + '_' + nodeId">
+                    <tr
+                      v-for="nodeId in selectedPhyloref.species"
+                      :key="(selectedPhyloref['@id'] || selectedPhyloref.label || '') + '_' + nodeId"
+                    >
                       <td>{{nodeId}}</td>
                       <td>{{speciesByNodeId[nodeId].name}}</td>
                       <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
