@@ -3,6 +3,7 @@
 Based on the suggestion at https://keepachangelog.com/en/1.0.0/.
 
 ## [Unreleased]
+- Upgraded NPM packages with `npm upgrade`.
 - Added a "demo mode", which loads and reasons over the example file.
 
 ## [0.2.0] - 2020-05-19
