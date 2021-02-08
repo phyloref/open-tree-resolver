@@ -272,6 +272,17 @@ export default {
       },
     ]},
   },
+  mounted() {
+    /**
+     * If provided with a special query (#demo), start a "demo" of the
+     * functionality of the Open Tree Resolver by loading an example
+     * file, looking it up on the Open Tree of Life, and starting reasoning.
+     */
+    if (window.location.hash == "#demo") {
+      this.demo()
+    }
+
+  },
   methods: {
     /*
      * Methods for accessing specifiers on Phylorefs
@@ -308,7 +319,7 @@ export default {
      * Open Tree synthetic tree methods
      */
 
-    downloadInducedSubtreeFromOToL(ottIds) {
+    downloadInducedSubtreeFromOToL(ottIds, callback) {
       // Given a set of OTT ids, download the induced subtree from the Open Tree API.
 
       if(ottIds.length === 0) return;
@@ -319,7 +330,7 @@ export default {
 
       // Query the induced subtree, i.e. a tree showing the relationships between all
       // these OTT ids.
-      jQuery.ajax({
+      return jQuery.ajax({
         type: 'POST',
         url: this.$config.OTT_API_INDUCED_SUBTREE,
         data: JSON.stringify({
@@ -329,6 +340,7 @@ export default {
         dataType: 'json',
         success: (data) => {
           this.newick = data.newick;
+          if (callback) callback(data.newick);
         },
       })
         .fail(x => {
@@ -357,6 +369,7 @@ export default {
               dataType: 'json',
               success: (data) => {
                 this.newick = data.newick;
+                if(callback) callback(data.newick);
               },
             }).fail(x => console.log("Error accessing Open Tree induced_subtree", x));
           } else {
@@ -372,7 +385,7 @@ export default {
     queryOTTIds() {
       // Calculate names from currently loaded specifiers.
       const names = this.allSpecifiers.map(specifier => this.getScinameForSpecifier(specifier));
-      this.queryOTTIdsForNames({names});
+      return this.queryOTTIdsForNames({names});
     },
 
     queryOTTIdsForNames(options) {
@@ -406,12 +419,14 @@ export default {
           matches: [],
         };
       }));
-      // OToL TNRS match_names has a limit of 1,000 names.
-      chunk(names, 999).forEach(chunk => {
+      // OToL TNRS match_names has a limit of 1,000 names, so we need to chunk
+      // our requests to it. Because of that chunking, we will create a single
+      // promise that is done when all the individual queries are done.
+      return Promise.all(chunk(names, 999).flatMap(chunk => {
         options.names = chunk;
         const data = JSON.stringify(options);
         // Step 2. Spawn queries to OTT asking for the names.
-        jQuery.ajax({
+        return jQuery.ajax({
           type: 'POST',
           url: this.$config.OTT_API_TNRS_MATCH_NAMES,
           data,
@@ -422,7 +437,7 @@ export default {
           },
         })
           .fail(x => console.log("Error accessing Open Tree Taxonomy", x));
-      });
+      }));
     },
 
     /*
@@ -600,7 +615,7 @@ export default {
     loadJSONLDFromURL(url) {
       // Load phylorefs from a JSON-LD file from a given URL.
 
-      jQuery.getJSON(url)
+      return jQuery.getJSON(url)
         .done((data) => {
           this.extractPhylorefsFromJSONLD(data);
         })
@@ -698,6 +713,20 @@ export default {
         if(jsonld.subClassOf === 'phyloref:Phyloreference')
           addPhyloref(jsonld);
       }
+    },
+
+    demo() {
+      // This demo is designed to demonstrate all the functionality of
+      // the Open Tree Resolver.
+
+      // TODO: add UI element to show demo loading processing.
+      this.loadJSONLDFromURL(this.exampleJSONLDURLs[0].url).done(() => {
+        this.queryOTTIds().then(() => {
+          this.downloadInducedSubtreeFromOToL(this.ottIdsForAllSpecifiers, () => {
+            this.reasonOverPhylogeny();
+          });
+        });
+      });
     },
   },
 };
