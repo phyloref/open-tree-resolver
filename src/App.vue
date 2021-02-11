@@ -13,6 +13,7 @@
             :reasoningResults="reasoningResults"
             :nodesByID="nodesByID"
             :unknownOttIdReasons="unknownOttIdReasons"
+            :speciesByNodeId="speciesByNodeId"
           />
         </div>
         <div class="card-footer">
@@ -35,9 +36,12 @@
               Add phyloreferences from example
             </button>
             <div class="dropdown-menu" aria-labelledby="addFromExamples">
-              <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
-                {{example.title}}
-              </a>
+              <a
+                href="javascript:;"
+                class="dropdown-item"
+                v-for="example of exampleJSONLDURLs"
+                :key="example.url"
+                @click="loadJSONLDFromURL(example.url)">{{example.title}}</a>
             </div>
           </div>
           <div class="btn-group ml-2" role="group" area-label="Actions on phyloreferences">
@@ -134,9 +138,85 @@
             <button
               class="btn btn-secondary"
               href="javascript:;"
+              @click="downloadSpeciesForAllPhylorefs()"
+            >
+              Download species for all phylorefs
+            </button>
+
+            <button
+              class="btn btn-info"
+              href="javascript:;"
               @click="downloadAsJSONLD()"
             >
               Download as ontology
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display all the species for a particular clade. -->
+      <div
+        v-for="(selectedPhyloref, phylorefIndex) of phylorefs"
+        :key="selectedPhyloref['@id'] || selectedPhyloref.label || ('phyloref_index_' + phylorefIndex)"
+        class="card border-dark mt-2"
+      >
+        <h5 :id="'species_in_' + selectedPhyloref.label" class="card-header">
+          Species in clade in {{selectedPhyloref.label || 'unlabeled phyloref'}}
+        </h5>
+        <div class="card-body">
+          <form>
+            <div class="form-group row" v-if="getNodeIdForPhyloref(selectedPhyloref)" >
+              <div class="col-md-3 control-label">
+                Resolved to:
+              </div>
+              <div class="col-md-9 input-group">
+                <a target="_blank" :href="'https://tree.opentreeoflife.org/opentree/@' + getNodeIdForPhyloref(selectedPhyloref)">{{getNodeIdForPhyloref(selectedPhyloref)}}</a>
+              </div>
+            </div>
+
+            <div class="form-group row" v-if="getNodeIdForPhyloref(selectedPhyloref)">
+              <div class="col-md-3 control-label">
+                Included species:
+              </div>
+              <div class="col-md-9 input-group">
+                <table border="1">
+                  <thead>
+                    <th>Node ID</th>
+                    <th>Name</th>
+                    <th>GBIF Species ID</th>
+                    <th>GBIF occurrence count</th>
+                  </thead>
+                  <tbody>
+                    <tr
+                      v-for="nodeId in selectedPhyloref.species"
+                      :key="(selectedPhyloref['@id'] || selectedPhyloref.label || '') + '_' + nodeId"
+                    >
+                      <td>{{nodeId}}</td>
+                      <td>{{speciesByNodeId[nodeId].name}}</td>
+                      <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">
+                        <a
+                          v-for="speciesId in gbifBySpeciesName[speciesByNodeId[nodeId].name].speciesKey"
+                          :key="'species_id_' + speciesId"
+                          target="_blank"
+                          :href="'http://gbif.org/species/' + speciesId"
+                          >{{speciesId}}</a>
+                      </td>
+                      <td v-if="gbifBySpeciesName && speciesByNodeId[nodeId] && speciesByNodeId[nodeId].name && gbifBySpeciesName[speciesByNodeId[nodeId].name]">{{gbifBySpeciesName[speciesByNodeId[nodeId].name].count}}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer" v-if="getNodeIdForPhyloref(selectedPhyloref)">
+          <div class="btn-group" role="group" area-label="Query biodiversity databases">
+            <button
+              class="btn btn-primary"
+              href="javascript:;"
+              @click="downloadFromGBIF(selectedPhyloref)"
+            >
+              Query information from GBIF
             </button>
           </div>
         </div>
@@ -207,6 +287,17 @@ export default {
     // List of unknown OTT Ids, if any.
     unknownOttIds: [],
     unknownOttIdReasons: {},
+
+    // Currently selected phyloref.
+    selectedPhyloref: undefined,
+
+    // Contains information on the species inside a node ID.
+    // Structure:
+    //  speciesByNodeId[nodeId] = [ { "nodeId": "12345", "name": "Homo sapiens", "rank": "species", ... } ]
+    speciesByNodeId: {},
+
+    // Contains information on GBIF by species name.
+    gbifBySpeciesName: {},
 
     // URL to Phyx context JSON.
     PHYX_CONTEXT_JSON: "http://www.phyloref.org/phyx.js/context/v0.2.0/phyx.json",
@@ -324,9 +415,13 @@ export default {
 
       if(ottIds.length === 0) return;
 
+      // Reset caches.
+      Vue.set(this, 'speciesByNodeId', {});
+      Vue.set(this, 'gbifBySpeciesName', {});
+
       // Reset the unknown OTT Ids.
-      this.unknownOttIds = [];
-      this.unknownOttIdReasons = {};
+      Vue.set(this, 'unknownOttIds', []);
+      Vue.set(this, 'unknownOttIdReasons', {});
 
       // Query the induced subtree, i.e. a tree showing the relationships between all
       // these OTT ids.
@@ -713,6 +808,115 @@ export default {
         if(jsonld.subClassOf === 'phyloref:Phyloreference')
           addPhyloref(jsonld);
       }
+    },
+
+    /* Retrieving lists of species from Open Tree of Life */
+
+    getNodeIdForPhyloref(phyloref) {
+      // Return the URL for the Open Tree resolved node for a particular phyloreference.
+
+      if (!phyloref) return undefined;
+
+      const phylorefId = phyloref['@id'];
+      if(phylorefId && has(this.reasoningResults, phylorefId)) {
+        const node = this.nodesByID[this.reasoningResults[phylorefId][0]];
+        if(!node) return undefined;
+
+        const label = this.getNodeLabel(node);
+        if(!label) return undefined;
+
+        console.log("Finding node ID in label: ", label);
+
+        // TODO: ignore change; works the other way around too.
+        const matchMRCA = /^mrca.*$/.exec(label);
+        if(matchMRCA == null) {
+            const match = /^.*[_\s](.*?ott.*)$/.exec(label);
+            if (match == null) return undefined;
+            return match[1].toString();
+        }
+        console.log("Found MRCA: ", matchMRCA[0].toString());
+        return matchMRCA[0].toString();
+      }
+      return undefined;
+    },
+
+    getNodeLabel(node) {
+      // Return the label for a particular node.
+      const labels = node.labels || [];
+      if(labels.length == 0) return undefined;
+      return labels[0]; // Ignore other labels.
+    },
+
+    downloadSpeciesForPhyloref(phyloref) {
+        console.log("downloadSpeciesForPhyloref", phyloref);
+      const ottNodeId = this.getNodeIdForPhyloref(phyloref);
+      if (!ottNodeId) return;
+      if (has(this.speciesByNodeId, ottNodeId)) return;
+      if (has(phyloref, 'species')) return;
+      Vue.set(phyloref, 'species', []);
+
+      jQuery.post({
+        url: this.$config.OTT_API_SUBTREE,
+        contentType: 'application/json; charset=utf-8',
+        data: JSON.stringify({
+          node_id: ottNodeId,
+          format: 'arguson',
+          height_limit: -1,
+        }),
+      }).done((data) => {
+        console.log('Data retrieved: ', data);
+
+        const recordTaxa = (node) => {
+            if (!node) return;
+            if (node.taxon && node.taxon.rank && node.taxon.rank == "species") {
+              // Record this species!
+              this.speciesByNodeId[node.node_id] = {
+                node_id: node.node_id,
+                ...node.taxon,
+              };
+              phyloref.species.push(node.node_id);
+              // console.log(`Setting ${node.node_id} to`, node.taxon);
+            }
+            if (node.children) node.children.forEach(recordTaxa);
+        };
+        recordTaxa(data.arguson);
+        console.log("Found species for phyloref: ", phyloref.species);
+      });
+
+      return [];
+    },
+
+    /* Code for querying GBIF */
+    downloadFromGBIF(phyloref) {
+      if (!phyloref.species) return;
+      const speciesNames = phyloref.species.map(nodeId => this.speciesByNodeId[nodeId].name);
+      speciesNames.forEach(speciesName => {
+        console.log("Querying GBIF for species name: ", speciesName);
+        jQuery.get({
+          url: this.$config.GBIF_API_OCCURRENCE,
+          data: {
+            scientificName: speciesName,
+            rank: 'SPECIES'
+          },
+        }).done((data) => {
+          console.log('Data retrieved: ', data);
+          Vue.set(this.gbifBySpeciesName, speciesName, {
+            count: data.count,
+            speciesKey: Array.from(new Set(data.results.map(result => result.speciesKey))),
+          });
+        });
+      });
+    },
+
+    downloadSpeciesForAllPhylorefs() {
+      // Helper function for downloading species on all phyloreferences
+      // that have been resolved on the Open Tree of Life.
+      this.phylorefs.forEach(phyloref => {
+        const phylorefId = phyloref['@id'];
+        if(phylorefId && has(this.reasoningResults, phylorefId)) {
+          this.downloadSpeciesForPhyloref(phyloref);
+        }
+      });
     },
 
     demo() {
