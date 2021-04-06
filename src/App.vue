@@ -20,6 +20,20 @@
             <button
               class="btn btn-primary"
               href="javascript:;"
+              onclick="$('#load-phyx').trigger('click')"
+            >
+              Import Phyx file
+            </button>
+            <input
+              id="load-phyx"
+              type="file"
+              multiple="true"
+              class="d-none"
+              @change="loadPhyxFromFileInputById('#load-phyx')"
+            >
+            <button
+              class="btn btn-secondary"
+              href="javascript:;"
               onclick="$('#load-jsonld').trigger('click')"
             >
               Import from ontology in JSON-LD
@@ -158,7 +172,7 @@
 
 import { has, isEqual, chunk, uniq, uniqueId, isString, keys } from 'lodash';
 import jQuery from 'jquery';
-import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
+import { PhylogenyWrapper, TaxonomicUnitWrapper, PhyxWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { signer } from 'x-hub-signature';
 import { saveAs } from 'filesaver.js-npm';
@@ -671,9 +685,74 @@ export default {
       }
     },
 
+    loadPhyxFromFileInputById(fileInputId) {
+      // Load phylorefs from one or more Phyx files from the local file system
+      // using FileReader. fileInput needs to be an HTML element representing an
+      // <input type="file"> in which the user has selected the local file(s)
+      // they wish to load.
+      //
+      // This code is based on https://stackoverflow.com/a/21446426/27310
+
+      if (typeof window.FileReader !== 'function') {
+        alert('The FileReader API is not supported on this browser.');
+        return;
+      }
+
+      const $fileInput = jQuery(fileInputId);
+      if (!$fileInput) {
+        alert('Programmer error: No file input element specified.');
+        return;
+      }
+
+      if (!$fileInput.prop('files')) {
+        alert('File input element found, but files property missing: try another browser?');
+        return;
+      }
+
+      const files = $fileInput.prop('files');
+      if (files.length === 0) {
+        alert('Please select a file before attempting to load it.');
+        return;
+      }
+
+      for(let x = 0; x < files.length; x++) {
+        const file = files.item(x);
+        const fr = new FileReader();
+        fr.onload = ((e) => {
+          const lines = e.target.result;
+          const jsonld = JSON.parse(lines);
+
+          this.extractPhylorefsFromPhyx(jsonld);
+        });
+        fr.readAsText(file);
+      }
+    },
+
     /*
      * Phyloreference management
      */
+
+   extractPhylorefsFromPhyx(phyx) {
+      // Extract phyloreferences from the provided Phyx representation.
+
+      // Convert the Phyx file to JSON-LD.
+      const jsonld = new PhyxWrapper(phyx).asJSONLD();
+
+      let addPhyloref = (phyloref) => {
+        // Add a new phyloref to the list of phylorefs. We use isEqual
+        // to prevent adding the same phyloreference more than once, but we will
+        // add different phyloreferences with the same '@id'.
+        if(this.phylorefs.find(phy => isEqual(phy, phyloref)) !== undefined) return;
+
+        // No previous match? Then add it in!
+        this.phylorefs.push(phyloref);
+      };
+
+      // Add each phyloref separately.
+      if(has(jsonld, 'phylorefs') && Array.isArray(jsonld.phylorefs)) {
+        jsonld.phylorefs.forEach(phy => addPhyloref(phy));
+      }
+    },
 
     extractPhylorefsFromJSONLD(jsonld) {
       // Extract phyloreferences from the provided JSON-LD representation.
