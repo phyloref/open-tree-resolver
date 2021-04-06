@@ -49,7 +49,7 @@
               Add phyloreferences from example
             </button>
             <div class="dropdown-menu" aria-labelledby="addFromExamples">
-              <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
+              <a href="javascript:;" class="dropdown-item" v-for="example of examplePhyxURLs" v-bind:key="example.url" @click="loadPhyxFromURL(example.url)">
                 {{example.title}}
               </a>
             </div>
@@ -269,7 +269,7 @@ export default {
       });
       return ottInfoBySpecifierLabel;
     },
-    exampleJSONLDURLs() { return [
+    examplePhyxURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       /*
       {
@@ -281,7 +281,7 @@ export default {
         title: 'Hillis and Wilcox, 2005',
       },*/
       {
-        url: 'examples/brochu_2003.jsonld',
+        url: 'examples/brochu_2003.json',
         title: 'Brochu 2003',
       },
     ]},
@@ -626,20 +626,30 @@ export default {
      * Load phyloreferences from JSON-LD from URLs and files
      */
 
+    loadFromURL(url, done) {
+      // Load phylorefs from a JSON-LD file from a given URL.
+
+      jQuery.getJSON(url)
+        .done(done)
+        .fail((error) => {
+          if (error.status === 200) {
+            alert(`Could not load file '${url}': file malformed, see console for details.`);
+          } else {
+            alert(`Could not load file '${url}': server error ${error.status} ${error.statusText} from ${JSON.stringify(error)}`);
+          }
+        });
+    },
+
     loadJSONLDFromURL(url) {
       // Load phylorefs from a JSON-LD file from a given URL.
 
-      return jQuery.getJSON(url)
-        .done((data) => {
-          this.extractPhylorefsFromJSONLD(data);
-        })
-        .fail((error) => {
-          if (error.status === 200) {
-            alert(`Could not load JSON-LD file '${url}': file malformed, see console for details.`);
-          } else {
-            alert(`Could not load JSON-LD file '${url}': server error ${error.status} ${error.statusText} from ${JSON.stringify(error)}`);
-          }
-        });
+      this.loadFromURL(url, data => this.extractPhylorefsFromJSONLD(data));
+    },
+
+    loadPhyxFromURL(url) {
+      // Load phylorefs from a Phyx file from a given URL.
+
+      this.loadFromURL(url, data => this.extractPhylorefsFromPhyx(data));
     },
 
     loadFromFileInputById(fileInputId, done) {
@@ -692,17 +702,7 @@ export default {
     },
 
     loadPhyxFromFileInputById(fileInputId) {
-      this.loadFromFileInputById(fileInputId, (content) => {
-        const phyx = JSON.parse(content);
-
-        // Convert the Phyx file to JSON-LD.
-        const jsonld = new PhyxWrapper(phyx).asJSONLD();
-
-        // Add each phyloref separately.
-        if(has(jsonld, 'phylorefs') && Array.isArray(jsonld.phylorefs)) {
-          jsonld.phylorefs.forEach(phy => this.phylorefs.push(phy));
-        }
-      });
+      this.loadFromFileInputById(fileInputId, content => this.extractPhylorefsFromPhyx(JSON.parse(content)));
     },
 
     /*
@@ -749,12 +749,22 @@ export default {
       }
     },
 
+    extractPhylorefsFromPhyx(phyx) {
+      // Convert the Phyx file to JSON-LD.
+      const jsonld = new PhyxWrapper(phyx).asJSONLD();
+
+      // Add each phyloref separately.
+      if(has(jsonld, 'phylorefs') && Array.isArray(jsonld.phylorefs)) {
+        jsonld.phylorefs.forEach(phy => this.phylorefs.push(phy));
+      }
+    },
+
     demo() {
       // This demo is designed to demonstrate all the functionality of
       // the Open Tree Resolver.
 
       // TODO: add UI element to show demo loading processing.
-      this.loadJSONLDFromURL(this.exampleJSONLDURLs[0].url).done(() => {
+      this.loadJSONLDFromURL(this.examplePhyxURLs[0].url).done(() => {
         this.queryOTTIds().then(() => {
           this.downloadInducedSubtreeFromOToL(this.ottIdsForAllSpecifiers, () => {
             this.reasonOverPhylogeny();
