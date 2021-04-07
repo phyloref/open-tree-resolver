@@ -20,6 +20,20 @@
             <button
               class="btn btn-primary"
               href="javascript:;"
+              onclick="$('#load-phyx').trigger('click')"
+            >
+              Import Phyx file
+            </button>
+            <input
+              id="load-phyx"
+              type="file"
+              multiple="true"
+              class="d-none"
+              @change="loadPhyxFromFileInputById('#load-phyx')"
+            >
+            <button
+              class="btn btn-secondary"
+              href="javascript:;"
               onclick="$('#load-jsonld').trigger('click')"
             >
               Import from ontology in JSON-LD
@@ -35,7 +49,7 @@
               Add phyloreferences from example
             </button>
             <div class="dropdown-menu" aria-labelledby="addFromExamples">
-              <a href="javascript:;" class="dropdown-item" v-for="example of exampleJSONLDURLs" v-bind:key="example.url" @click="loadJSONLDFromURL(example.url)">
+              <a href="javascript:;" class="dropdown-item" v-for="example of examplePhyxURLs" v-bind:key="example.url" @click="loadPhyxFromURL(example.url)">
                 {{example.title}}
               </a>
             </div>
@@ -158,7 +172,7 @@
 
 import { has, isEqual, chunk, uniq, uniqueId, isString, keys } from 'lodash';
 import jQuery from 'jquery';
-import { PhylogenyWrapper, TaxonomicUnitWrapper } from '@phyloref/phyx';
+import { PhylogenyWrapper, TaxonomicUnitWrapper, PhyxWrapper } from '@phyloref/phyx';
 import Vue from 'vue';
 import { signer } from 'x-hub-signature';
 import { saveAs } from 'filesaver.js-npm';
@@ -255,7 +269,7 @@ export default {
       });
       return ottInfoBySpecifierLabel;
     },
-    exampleJSONLDURLs() { return [
+    examplePhyxURLs() { return [
       // Returns a list of example files to display in the "Examples" menu.
       /*
       {
@@ -267,7 +281,7 @@ export default {
         title: 'Hillis and Wilcox, 2005',
       },*/
       {
-        url: 'examples/brochu_2003.jsonld',
+        url: 'examples/brochu_2003.json',
         title: 'Brochu 2003',
       },
     ]},
@@ -612,23 +626,33 @@ export default {
      * Load phyloreferences from JSON-LD from URLs and files
      */
 
-    loadJSONLDFromURL(url) {
+    loadFromURL(url, done) {
       // Load phylorefs from a JSON-LD file from a given URL.
 
-      return jQuery.getJSON(url)
-        .done((data) => {
-          this.extractPhylorefsFromJSONLD(data);
-        })
+      jQuery.getJSON(url)
+        .done(done)
         .fail((error) => {
           if (error.status === 200) {
-            alert(`Could not load JSON-LD file '${url}': file malformed, see console for details.`);
+            alert(`Could not load file '${url}': file malformed, see console for details.`);
           } else {
-            alert(`Could not load JSON-LD file '${url}': server error ${error.status} ${error.statusText} from ${JSON.stringify(error)}`);
+            alert(`Could not load file '${url}': server error ${error.status} ${error.statusText} from ${JSON.stringify(error)}`);
           }
         });
     },
 
-    loadJSONLDFromFileInputById(fileInputId) {
+    loadJSONLDFromURL(url) {
+      // Load phylorefs from a JSON-LD file from a given URL.
+
+      this.loadFromURL(url, data => this.extractPhylorefsFromJSONLD(data));
+    },
+
+    loadPhyxFromURL(url) {
+      // Load phylorefs from a Phyx file from a given URL.
+
+      this.loadFromURL(url, data => this.extractPhylorefsFromPhyx(data));
+    },
+
+    loadFromFileInputById(fileInputId, done) {
       // Load phylorefs from one or more JSON-LD files from the local file system
       // using FileReader. fileInput needs to be an HTML element representing an
       // <input type="file"> in which the user has selected the local file(s)
@@ -662,13 +686,23 @@ export default {
         const file = files.item(x);
         const fr = new FileReader();
         fr.onload = ((e) => {
-          const lines = e.target.result;
-          const jsonld = JSON.parse(lines);
-
-          this.extractPhylorefsFromJSONLD(jsonld);
+          const content = e.target.result;
+          done(content);
         });
         fr.readAsText(file);
       }
+    },
+
+    loadJSONLDFromFileInputById(fileInputId) {
+      this.loadFromFileInputById(fileInputId, (content) => {
+        const jsonld = JSON.parse(content);
+
+        this.extractPhylorefsFromJSONLD(jsonld);
+      });
+    },
+
+    loadPhyxFromFileInputById(fileInputId) {
+      this.loadFromFileInputById(fileInputId, content => this.extractPhylorefsFromPhyx(JSON.parse(content)));
     },
 
     /*
@@ -715,12 +749,22 @@ export default {
       }
     },
 
+    extractPhylorefsFromPhyx(phyx) {
+      // Convert the Phyx file to JSON-LD.
+      const jsonld = new PhyxWrapper(phyx).asJSONLD();
+
+      // Add each phyloref separately.
+      if(has(jsonld, 'phylorefs') && Array.isArray(jsonld.phylorefs)) {
+        jsonld.phylorefs.forEach(phy => this.phylorefs.push(phy));
+      }
+    },
+
     demo() {
       // This demo is designed to demonstrate all the functionality of
       // the Open Tree Resolver.
 
       // TODO: add UI element to show demo loading processing.
-      this.loadJSONLDFromURL(this.exampleJSONLDURLs[0].url).done(() => {
+      this.loadJSONLDFromURL(this.examplePhyxURLs[0].url).done(() => {
         this.queryOTTIds().then(() => {
           this.downloadInducedSubtreeFromOToL(this.ottIdsForAllSpecifiers, () => {
             this.reasonOverPhylogeny();
