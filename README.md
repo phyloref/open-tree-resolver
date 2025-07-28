@@ -1,5 +1,6 @@
 # Open Tree Resolver
 
+> [!NOTE]
 > This project is now **archived**: all of its functionality
 > has now been incorporated into [Klados](https://github.com/phyloref/klados),
 > which you can try [on our website](https://www.phyloref.org/klados/).
