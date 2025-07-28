@@ -1,5 +1,9 @@
 # Open Tree Resolver
 
+> This project is now **archived**: all of its functionality
+> has now been incorporated into [Klados](https://github.com/phyloref/klados),
+> which you can try [on our website](https://www.phyloref.org/klados/).
+
 The Phyloreference Open Tree Resolver resolves [phyloreferences] encoded in an
 [OWL 2 ontology] in the [JSON-LD format] on the [Open Tree of Life]. It does
 this by downloading the part of the Open Tree of Life that includes all specifiers
